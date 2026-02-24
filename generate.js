@@ -101,14 +101,11 @@ const contactItem = (text, href) =>
 
 const sep = `<span class="contact-separator">·</span>`;
 
-// ---- page break helper --------------------------------------
-
-// Simple heuristic: split experience at index SPLIT_AT for page 2
-const SPLIT_AT = 4; // first 4 roles on page 1, rest on page 2
-const exp1 = cv.experience.slice(0, SPLIT_AT);
-const exp2 = cv.experience.slice(SPLIT_AT);
-
 // ---- CSS ----------------------------------------------------
+
+// Page margins (px) - applied as screen padding AND @page / Puppeteer margins.
+// Change this single value to adjust all four sides at once.
+const PAGE_MARGIN = 50;
 
 const CSS = `
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -119,7 +116,7 @@ const CSS = `
   --color-text:   #000000;
   --color-muted:  #6f7878;
   --color-border: #000000;
-  --page-padding: 50px;
+  --page-margin:  ${PAGE_MARGIN}px;
 }
 
 body {
@@ -128,12 +125,12 @@ body {
   background: #e8e8e8;
 }
 
-.page {
+/* Screen: single white sheet, width matches A4 @ 96 dpi */
+.resume {
   width: 794px;
-  min-height: 1122px;
   background: #ffffff;
-  margin: 40px auto;
-  padding: var(--page-padding) var(--page-padding) 0;
+  margin: 40px auto 40px;
+  padding: var(--page-margin);
   box-shadow: 0 2px 8px rgba(0,0,0,.18);
 }
 
@@ -170,7 +167,10 @@ body {
   padding: 6px 12px 0; margin-bottom: 0;
 }
 
-.item { padding: 6px 12px; }
+/* Keep each entry on the same page; never split mid-bullet */
+.item { padding: 6px 12px; break-inside: avoid; }
+.section { break-inside: avoid; }
+.section-title { break-after: avoid; }
 
 .item-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: nowrap; }
 .item-org { font-family: var(--font-body); font-weight: 400; font-size: 18px; line-height: 22px; color: var(--color-muted); }
@@ -208,20 +208,18 @@ body {
 .portfolio-link { font-family: var(--font-body); font-size: 13px; line-height: 16px; color: var(--color-text); word-break: break-all; }
 .portfolio-link a { color: inherit; text-decoration: none; }
 
-.page-footer { position: relative; height: 50px; }
-
-.course-item { display: flex; align-items: baseline; flex-wrap: nowrap; padding: 6px 12px; gap: 0; }
+.course-item { display: flex; align-items: baseline; flex-wrap: nowrap; padding: 6px 12px; gap: 0; break-inside: avoid; }
 .course-title { font-family: var(--font-body); font-weight: 400; font-size: 15px; line-height: 18px; color: var(--color-muted); flex-shrink: 1; white-space: nowrap; }
 .course-separator { flex: 1; border-bottom: 1px dotted #ccc; margin: 0 8px; position: relative; top: -3px; min-width: 12px; }
 .course-institution { font-family: var(--font-body); font-size: 13px; line-height: 16px; color: var(--color-text); white-space: nowrap; }
 
 @media print {
-  body { background: none; }
-  .page { width: 100%; margin: 0; box-shadow: none; min-height: unset; }
-  .page-break { page-break-after: always; }
+  body  { background: none; }
+  .resume { width: 100%; margin: 0; padding: 0; box-shadow: none; }
 }
 
-@page { size: A4; margin: 0; }
+/* Puppeteer reads @page margin; also used as fallback for browser print */
+@page { size: A4; margin: ${PAGE_MARGIN}px; }
 `;
 
 // ---- HTML template ------------------------------------------
@@ -240,8 +238,7 @@ const html = `<!DOCTYPE html>
 </head>
 <body>
 
-<!-- PAGE 1 -->
-<div class="page">
+<div class="resume">
 
   <header class="resume-header">
     <div class="header-name">${esc(cv.personal.name)}</div>
@@ -266,18 +263,7 @@ const html = `<!DOCTYPE html>
 
   <section class="section">
     <div class="section-title">Experience</div>
-    ${exp1.map(experienceItem).join('\n')}
-  </section>
-
-  <div class="page-footer"></div>
-</div>
-
-<!-- PAGE 2 -->
-<div class="page">
-
-  <section class="section">
-    <div class="section-title">Experience</div>
-    ${exp2.map(experienceItem).join('\n')}
+    ${cv.experience.map(experienceItem).join('\n')}
   </section>
 
   <section class="section">
@@ -295,12 +281,6 @@ const html = `<!DOCTYPE html>
     ${cv.skills.map(skillGroup).join('\n')}
   </section>
 
-  <div class="page-footer"></div>
-</div>
-
-<!-- PAGE 3 -->
-<div class="page">
-
   <section class="section">
     <div class="section-title">Languages</div>
     <div class="languages-grid">
@@ -315,7 +295,6 @@ const html = `<!DOCTYPE html>
     </div>
   </section>
 
-  <div class="page-footer"></div>
 </div>
 
 </body>
@@ -342,7 +321,13 @@ if (exportPdf) {
     path: pdfOut,
     format: 'A4',
     printBackground: true,
-    margin: { top: 0, right: 0, bottom: 0, left: 0 },
+    // Margins match PAGE_MARGIN - change that constant to adjust all at once
+    margin: {
+      top:    `${PAGE_MARGIN}px`,
+      right:  `${PAGE_MARGIN}px`,
+      bottom: `${PAGE_MARGIN}px`,
+      left:   `${PAGE_MARGIN}px`,
+    },
   });
 
   await browser.close();

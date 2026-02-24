@@ -76,13 +76,16 @@ npm install
 
 `dots` is a number from 1 to 5.
 
-## Page layout
+## Page layout & margins
 
-Page breaks are controlled by the `SPLIT_AT` constant in `generate.js`.
-It defines how many experience entries go on page 1; the rest flow to page 2.
+Content flows naturally across pages - no manual page splitting.
+Puppeteer paginates automatically, respecting `break-inside: avoid` on every
+entry so items are never split mid-bullet.
+
+To change the margin on all four sides, edit one constant in `generate.js`:
 
 ```js
-const SPLIT_AT = 4; // adjust to control page break
+const PAGE_MARGIN = 50; // px - applies to screen padding, @page, and Puppeteer
 ```
 
 ## Typography
