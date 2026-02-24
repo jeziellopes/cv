@@ -68,9 +68,11 @@ body {
   padding: 6px 12px 0; margin-bottom: 0;
 }
 
-/* Keep each entry on the same page; never split mid-bullet */
+/* Keep each entry on the same page; never split mid-bullet.
+   break-inside is on .item only - NOT on .section, so that long sections
+   (e.g. Experience) can naturally flow across pages without leaving
+   a blank gap after the Summary on page 1. */
 .item { padding: 6px 12px; break-inside: avoid; }
-.section { break-inside: avoid; }
 .section-title { break-after: avoid; }
 
 .item-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: nowrap; }
@@ -89,9 +91,9 @@ body {
 .skill-group { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0; padding: 6px 12px; }
 .skill-label { font-family: var(--font-body); font-size: 15px; line-height: 18px; color: var(--color-muted); white-space: nowrap; flex-shrink: 0; }
 .skill-label::after { content: ': '; }
-.skill-tags { display: flex; flex-wrap: wrap; gap: 0; }
-.skill-tag { font-family: var(--font-body); font-size: 13px; line-height: 16px; color: var(--color-text); }
-.skill-tag:not(:last-child)::after { content: ', '; }
+.skill-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 0; }
+.skill-tag { font-family: var(--font-body); font-size: 13px; line-height: 18px; color: var(--color-text); }
+.skill-tag:not(:last-child)::after { content: '·'; font-weight: 700; margin: 0 5px; color: var(--color-text); }
 
 .languages-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
 .language-item { padding: 6px 12px; }
