@@ -66,7 +66,7 @@
       "end": "12/2021",
       "bullets": [
         "Implemented new features based on product requirements, translating business needs into scalable and maintainable technical solutions.",
-        "Designed and developed user-friendly, accessible interfaces, prioritizing usability, performance, and inclusive design principles.",
+        "Designed and developed user-friendly, accessible interfaces, prioritizing usability, performance, and design principles.",
         "Built websites and digital platforms using React, Hooks, Gatsby, Next.js, Redux, Context API, TypeScript, and modern JavaScript (ES6+).",
         "Implemented unit tests with Jest and React Testing Library, improving reliability and reducing regression risks.",
         "Integrated front-end applications with internal and third-party APIs, ensuring robust data flow and error handling.",
@@ -169,7 +169,7 @@
         "Distributed Systems", "Cloud-Native Architecture",
         "Docker", "Kubernetes Foundations",
         "Event-Driven Architecture", "Resilience Patterns",
-        "Repository Pattern", "System Design Principles", "SRE Concepts", "CVA"
+        "System Design Principles", "SRE Concepts"
       ]
     }
   ],
