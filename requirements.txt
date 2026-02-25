@@ -1,0 +1,5 @@
+# Open-CV Python dependencies
+# Install:  pip install -r requirements.txt
+# Then:     playwright install chromium
+
+playwright>=1.44.0
