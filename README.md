@@ -8,26 +8,43 @@ Open-CV is a free, open-source resume generator. Edit `cv.json`, run one command
 
 ```
 open-cv/
-├── cv.json          ← YOUR resume data (edit this)
-├── generate.js      ← template engine + PDF exporter
-├── package.json
-├── index.html       ← generated output (do not edit by hand)
-└── resume.pdf       ← generated output
+├── cv.json           ← YOUR resume data (edit this)
+├── generate.py       ← template engine + PDF exporter
+├── requirements.txt  ← Python dependencies
+└── resume.pdf        ← generated demo (tracked in git)
 ```
+
+> `index.html` is a build artifact and is intentionally git-ignored.
 
 ## Quick start
 
 ```bash
-npm install
+pip install -r requirements.txt
+playwright install chromium
 ```
 
 ## Commands
 
 | Command | Description |
 |---|---|
-| `npm run build` | Render `cv.json` → `index.html` |
-| `npm run export` | Render `cv.json` → `index.html` + `resume.pdf` |
-| `npm run preview` | Build and serve locally at http://localhost:5500 |
+| `python3 generate.py` | Render `cv.json` → `index.html` (classic theme) |
+| `python3 generate.py --pdf` | Render `cv.json` → `index.html` + `resume.pdf` |
+| `python3 generate.py --theme NAME` | Use a specific theme |
+| `python3 generate.py --pdf --theme NAME` | Export PDF with a specific theme |
+| `python3 -m http.server 5500` | Preview locally at http://localhost:5500 |
+
+## Themes
+
+| Theme | Font | Accent |
+|---|---|---|
+| `classic` *(default)* | Volkhov + PT Sans | Black - original style |
+| `modern` | Inter | Blue `#2563eb` on name, titles & dots |
+| `minimal` | IBM Plex Sans | Dark grey, uppercase section labels, light borders |
+
+```bash
+python3 generate.py --theme modern
+python3 generate.py --pdf --theme minimal
+```
 
 ## How to update your resume
 
@@ -79,16 +96,16 @@ npm install
 ## Page layout & margins
 
 Content flows naturally across pages - no manual page splitting.
-Puppeteer paginates automatically, respecting `break-inside: avoid` on every
+Playwright paginates automatically, respecting `break-inside: avoid` on every
 entry so items are never split mid-bullet.
 
-To change the margin on all four sides, edit one constant in `generate.js`:
+To change the margin on all four sides, edit one constant in `generate.py`:
 
-```js
-const PAGE_MARGIN = 50; // px - applies to screen padding, @page, and Puppeteer
+```python
+PAGE_MARGIN = 50  # px - applies to screen padding, @page, and Playwright
 ```
 
-## Typography
+## Typography (classic theme)
 
 | Element | Font | Size |
 |---|---|---|
