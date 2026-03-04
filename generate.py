@@ -3,11 +3,13 @@
 # Open-CV - Python generator
 # Usage:
 #   python generate.py                  → writes index.html
-#   python generate.py --pdf            → writes index.html + resume.pdf
+#   python generate.py --pdf            → writes index.html + resume-en.pdf
 #   python generate.py --theme NAME     → use a named theme
+#   python generate.py --lang LANG      → use a specific language
 #
 # Available themes: classic (default), modern, minimal
-# Combine flags:  python generate.py --pdf --theme modern
+# Available languages: en (default), pt-br
+# Combine flags:  python generate.py --lang pt-br --pdf --theme modern
 # ============================================================
 
 import json
@@ -16,16 +18,29 @@ import html as _html
 from pathlib import Path
 
 BASE_DIR  = Path(__file__).resolve().parent
-CV_PATH   = BASE_DIR / "cv.json"
-HTML_OUT  = BASE_DIR / "index.html"
-PDF_OUT   = BASE_DIR / "resume.pdf"
+
+# ---- parse arguments ----------------------------------------
 
 EXPORT_PDF = "--pdf"   in sys.argv
+
 THEME_NAME = "classic"
 if "--theme" in sys.argv:
     idx = sys.argv.index("--theme")
     if idx + 1 < len(sys.argv):
         THEME_NAME = sys.argv[idx + 1]
+
+LANG = "en"
+if "--lang" in sys.argv:
+    idx = sys.argv.index("--lang")
+    if idx + 1 < len(sys.argv):
+        LANG = sys.argv[idx + 1]
+
+# ---- paths based on language --------------------------------
+
+CV_FILENAME = "cv.json" if LANG == "en" else f"cv-{LANG}.json"
+CV_PATH   = BASE_DIR / CV_FILENAME
+HTML_OUT  = BASE_DIR / "index.html"
+PDF_OUT   = BASE_DIR / f"resume-{LANG}.pdf"
 
 # ---- data ---------------------------------------------------
 
@@ -413,7 +428,7 @@ html_doc = f"""<!DOCTYPE html>
 # ---- write HTML ---------------------------------------------
 
 HTML_OUT.write_text(html_doc, encoding="utf-8")
-print(f"✔ index.html written  (theme: {THEME_NAME})")
+print(f"✔ index.html written  (lang: {LANG}, theme: {THEME_NAME})")
 
 # ---- export PDF ---------------------------------------------
 
@@ -444,4 +459,4 @@ if EXPORT_PDF:
         )
         browser.close()
 
-    print(f"✔ resume.pdf written")
+    print(f"✔ {PDF_OUT.name} written")

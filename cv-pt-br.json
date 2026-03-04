@@ -1,0 +1,190 @@
+{
+  "personal": {
+    "name": "Jeziel Lopes Carvalho",
+    "title": "Full Stack Software Engineer",
+    "phone": "+5531993841675",
+    "email": "jeziellcarvalho@gmail.com",
+    "linkedin": "https://www.linkedin.com/in/jezielcarvalho",
+    "location": "Ipatinga, Brasil"
+  },
+
+  "summary": "Engenheiro de Software Full Stack com ampla experiência em engenharia de requisitos, metodologias ágeis e um stack tecnológico moderno que inclui Node.js, NestJS, TypeScript, Next.js, React e React Native. Sou especializado em projetar e entregar aplicações web e mobile escaláveis e centradas no usuário, cobrindo todo o ciclo de desenvolvimento desde o levantamento de requisitos até a implantação. Com forte foco em criar experiências intuitivas e alinhar soluções técnicas com objetivos de negócio, prospero em ambientes colaborativos e ágeis. Comprometido com aprendizado contínuo e inovação, busco resolver desafios complexos com soluções eficientes, sustentáveis e impactantes.",
+
+  "experience": [
+    {
+      "org": "Professional Development",
+      "location": "Remoto",
+      "role": "Career Break",
+      "start": "01/2025",
+      "end": "Presente",
+      "bullets": [
+        "Foco em aprendizado contínuo, aprimoramento técnico e crescimento profissional.",
+        "Estudei tecnologias web modernas, arquitetura de backend e design de sistemas.",
+        "Aprofundei conhecimento em sistemas distribuídos cloud-native apoiados por princípios de observabilidade.",
+        "Explorei e apliquei fluxos de desenvolvimento potencializados por IA para melhorar produtividade, qualidade de código e processos de engenharia.",
+        "Trabalhei em projetos pessoais e experimentais para fortalecer habilidades de resolução de problemas do mundo real.",
+        "Utilizei este período para refletir sobre objetivos de carreira de longo prazo e me preparar para o próximo desafio profissional."
+      ]
+    },
+    {
+      "org": "BR Media Group",
+      "location": "São Paulo, Brasil",
+      "role": "Full Stack Software Engineer",
+      "start": "11/2022",
+      "end": "12/2024",
+      "bullets": [
+        "Apliquei princípios de arquitetura de software empresarial e padrões de design da indústria para construir sistemas escaláveis e sustentáveis.",
+        "Adotei práticas pragmáticas de engenharia de software em todo o ciclo de desenvolvimento, da descoberta à implantação.",
+        "Contribuí para o refinamento do backlog técnico, traduzindo requisitos de negócio em soluções técnicas bem definidas.",
+        "Projetei e implementei novos módulos e funcionalidades em arquitetura de microserviços baseada em NestJS, garantindo modularidade e performance.",
+        "Construí componentes de UI reutilizáveis e acessíveis usando CVA e Radix UI, mantendo forte consistência do design system.",
+        "Desenvolvi telas responsivas em Next.js (Web) e React Native (Mobile) baseadas em protótipos de produto e especificações de UX.",
+        "Mantive e evoluí uma base de código TypeScript, garantindo qualidade, legibilidade e escalabilidade do código.",
+        "Implementei testes unitários, de integração e end-to-end usando Jest, React Testing Library e Cypress para garantir confiabilidade e prevenir regressões.",
+        "Entreguei experiências centradas no usuário alinhadas com as melhores práticas de UX, equilibrando performance, usabilidade e objetivos de negócio."
+      ]
+    },
+    {
+      "org": "DevSkin Consultoria de TI",
+      "location": "Campinas, Brasil",
+      "role": "Full Stack Developer",
+      "start": "12/2021",
+      "end": "06/2022",
+      "bullets": [
+        "Mantive e evoluí aplicações front-end construídas com React, Redux, Context API, TypeScript e Styled-Components, melhorando performance e sustentabilidade.",
+        "Desenvolvi e mantive APIs RESTful em Node.js, documentando endpoints usando Swagger para garantir definição clara de contratos e alinhamento entre equipes.",
+        "Implementei testes unitários usando Jest e React Testing Library, aumentando a confiabilidade do código e reduzindo riscos de regressão.",
+        "Integrei APIs de terceiros e internas com estratégias avançadas de gerenciamento de requisições, incluindo cancelamento de requisições para otimizar consumo de recursos e prevenir race conditions.",
+        "Projetei e entreguei funcionalidades de chat em tempo real usando Socket.IO, permitindo comunicação bidirecional com baixa latência."
+      ]
+    },
+    {
+      "org": "ioasys",
+      "location": "Belo Horizonte, Brasil",
+      "role": "Senior Front End Developer",
+      "start": "05/2021",
+      "end": "12/2021",
+      "bullets": [
+        "Implementei novas funcionalidades baseadas em requisitos de produto, traduzindo necessidades de negócio em soluções técnicas escaláveis e sustentáveis.",
+        "Projetei e desenvolvi interfaces amigáveis e acessíveis, priorizando usabilidade, performance e princípios de design.",
+        "Construí websites e plataformas digitais usando React, Hooks, Gatsby, Next.js, Redux, Context API, TypeScript e JavaScript moderno (ES6+).",
+        "Implementei testes unitários com Jest e React Testing Library, melhorando confiabilidade e reduzindo riscos de regressão.",
+        "Integrei aplicações front-end com APIs internas e de terceiros, garantindo fluxo robusto de dados e tratamento de erros.",
+        "Implantei e mantive aplicações React usando AWS S3 (hospedagem estática), contribuindo com processos de CI/CD e releases.",
+        "Aprimorei o Design System da empresa implementando Storybook Controls, melhorando a descoberta de componentes e adoção entre squads.",
+        "Mentorei novos engenheiros, disseminando melhores práticas em qualidade de código, testes e arquitetura front-end."
+      ]
+    },
+    {
+      "org": "Foodway",
+      "location": "Ipatinga, Minas Gerais",
+      "role": "React Native Developer",
+      "start": "04/2020",
+      "end": "03/2021",
+      "bullets": [
+        "Redesenhei telas da aplicação mobile baseadas em guias de estilo de produto e protótipos de alta fidelidade, aplicando melhores práticas de UX, usabilidade e acessibilidade usando Styled-Components.",
+        "Integrei aplicações front-end com APIs e gerenciei fluxos de estado de carrinho e pedidos usando React Native, Redux e JavaScript moderno (ES6+).",
+        "Contribuí para o lançamento bem-sucedido do MVP de uma aplicação mobile de pedidos digitais, colaborando entre áreas para garantir entrega pontual e prontidão para produção.",
+        "Trabalhei em paralelo na versão de próxima geração do app usando Flutter e Dart, implementando o Padrão Repository para melhorar separação de responsabilidades, testabilidade e sustentabilidade."
+      ]
+    },
+    {
+      "org": "Plus.me",
+      "location": "Ipatinga, Minas Gerais",
+      "role": "Full Stack Developer",
+      "start": "11/2019",
+      "end": "04/2020",
+      "bullets": [
+        "Colaborei com o time de Produto para levantar e refinar requisitos para novas soluções digitais, traduzindo necessidades de negócio em especificações técnicas.",
+        "Projetei e desenvolvi interfaces amigáveis com forte foco em UX, usabilidade e melhores práticas de acessibilidade.",
+        "Modelei e implementei produtos digitais usando JavaScript (ES6+), React e Node.js, garantindo arquitetura limpa e código sustentável.",
+        "Integrei APIs de terceiros para coletar e processar dados de campanhas de marketing de clientes, possibilitando insights orientados a dados.",
+        "Desenvolvi landing pages responsivas baseadas em protótipos de design usando React e Styled-Components, garantindo consistência visual e performance.",
+        "Construí um website temático para um bistrô com menu digital interativo, aprimorando o engajamento e usabilidade do cliente.",
+        "Contribuí para o desenvolvimento em estágio inicial de um produto SaaS de agência que permitiu aos clientes gerenciar e rastrear seus próprios leads via plataforma de dashboard."
+      ]
+    },
+    {
+      "org": "Grupo Central",
+      "location": "Ipatinga, Minas Gerais",
+      "role": "Full Stack Developer",
+      "start": "02/2019",
+      "end": "11/2019",
+      "bullets": [
+        "Colaborei com o time de Produto para levantar e refinar requisitos para novas funcionalidades, traduzindo necessidades de negócio em soluções técnicas.",
+        "Projetei e implementei interfaces amigáveis com forte foco em UX, usabilidade e princípios de acessibilidade.",
+        "Modelei e desenvolvi um novo módulo de agendamento de eventos dentro de uma arquitetura MVC monolítica usando Laravel (PHP), JavaScript (ES5/jQuery) e CSS3, garantindo estrutura sustentável, clara separação de responsabilidades e organização de código escalável."
+      ]
+    }
+  ],
+
+  "education": [
+    {
+      "institution": "Centro Universitário do Leste de Minas Gerais",
+      "location": "Coronel Fabriciano, Brasil",
+      "degree": "Information Systems Bachelor Degree",
+      "start": "01/2012",
+      "end": "01/2021",
+      "bullets": [
+        "Foco em Engenharia de Software"
+      ]
+    }
+  ],
+
+  "courses": [
+    {
+      "title": "Computer Network Technician, Information Technology",
+      "institution": "Senac Minas"
+    },
+    {
+      "title": "6.00x: Introduction to Computer Science and Programming using Python",
+      "institution": "MIT"
+    }
+  ],
+
+  "skills": [
+    {
+      "group": "Core Production Experience",
+      "tags": [
+        "JavaScript", "TypeScript", "PHP", "Dart",
+        "React", "Next.js", "Gatsby", "React Native", "Flutter",
+        "Node.js", "NestJS", "Laravel",
+        "Redux", "Context API", "jQuery",
+        "Styled-Components", "CVA", "Radix UI",
+        "MVC Architecture", "Microservices Architecture",
+        "RESTful APIs", "WebSockets", "API Integration", "Swagger/OpenAPI",
+        "Repository Pattern", "Design Systems", "Storybook",
+        "Unit Testing", "React Testing Library", "Cypress", "Integration Testing",
+        "State Management", "AWS S3", "CI/CD",
+        "UX Principles", "Accessibility", "Responsive Design",
+        "Clean Code", "Design Patterns",
+        "Backlog Refinement", "Requirements Gathering", "Agile Methodologies",
+        "MVP Development", "Mentorship"
+      ]
+    },
+    {
+      "group": "Architecture & Advanced Engineering Focus",
+      "tags": [
+        "Observability", "Logs", "Metrics", "Traces",
+        "Distributed Systems", "Cloud-Native Architecture",
+        "Docker", "Kubernetes Foundations",
+        "Event-Driven Architecture", "Resilience Patterns",
+        "System Design Principles", "SRE Concepts"
+      ]
+    }
+  ],
+
+  "languages": [
+    { "name": "English",   "level": "Intermediário", "dots": 3 },
+    { "name": "Español",   "level": "Intermediário", "dots": 3 },
+    { "name": "Português", "level": "Nativo",        "dots": 5 }
+  ],
+
+  "portfolio": [
+    {
+      "label": "GitHub",
+      "url": "https://github.com/jeziellopes",
+      "display": "github.com/jeziellopes"
+    }
+  ]
+}
