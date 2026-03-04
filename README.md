@@ -8,10 +8,11 @@ Open-CV is a free, open-source resume generator. Edit `cv.json`, run one command
 
 ```
 open-cv/
-├── cv.json           ← YOUR resume data (edit this)
+├── cv.json           ← YOUR resume data in English (edit this)
+├── cv-pt-br.json     ← YOUR resume data in Portuguese-BR
 ├── generate.py       ← template engine + PDF exporter
 ├── requirements.txt  ← Python dependencies
-└── resume.pdf        ← generated demo (tracked in git)
+└── resume-*.pdf      ← generated PDFs (language-specific)
 ```
 
 > `index.html` is a build artifact and is intentionally git-ignored.
@@ -27,10 +28,13 @@ playwright install chromium
 
 | Command | Description |
 |---|---|
-| `python3 generate.py` | Render `cv.json` → `index.html` (classic theme) |
-| `python3 generate.py --pdf` | Render `cv.json` → `index.html` + `resume.pdf` |
+| `python3 generate.py` | Render `cv.json` → `index.html` (classic theme, English) |
+| `python3 generate.py --pdf` | Render `cv.json` → `index.html` + `resume-en.pdf` |
+| `python3 generate.py --lang pt-br` | Render Portuguese version → `index.html` |
+| `python3 generate.py --lang pt-br --pdf` | Render Portuguese version + `resume-pt-br.pdf` |
 | `python3 generate.py --theme NAME` | Use a specific theme |
 | `python3 generate.py --pdf --theme NAME` | Export PDF with a specific theme |
+| `python3 generate.py --lang pt-br --theme minimal --pdf` | Combine language, theme, and PDF export |
 | `python3 -m http.server 5500` | Preview locally at http://localhost:5500 |
 
 ## Themes
@@ -45,6 +49,20 @@ playwright install chromium
 python3 generate.py --theme modern
 python3 generate.py --pdf --theme minimal
 ```
+
+## Languages
+
+| Language | Code | CV File |
+|---|---|---|
+| English *(default)* | `en` | `cv.json` |
+| Portuguese-BR | `pt-br` | `cv-pt-br.json` |
+
+```bash
+python3 generate.py --lang pt-br
+python3 generate.py --lang pt-br --pdf --theme modern
+```
+
+> **Note:** To add support for more languages, create a new `cv-{lang}.json` file and use `--lang {lang}` to generate it.
 
 ## How to update your resume
 
