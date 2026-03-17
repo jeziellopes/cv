@@ -8,7 +8,7 @@
     "location": "Ipatinga, Brazil"
   },
 
-  "summary": "Software Development Engineer with 5+ years of experience building and evolving microservices and web applications using TypeScript, JavaScript, and Node.js/NestJS. Consistent practitioner of Test-Driven Development (TDD) - writing failing tests before implementation to drive design and ensure correctness. Experienced in Spec-Driven Development (SDD) approaches, collaborating with product and QA teams on well-defined acceptance criteria, testable specifications, and behavior-driven requirements. Hands-on with cloud-native architecture, AWS deployments, and CI/CD pipelines. Active adopter of AI-assisted development workflows to accelerate delivery while maintaining full ownership of design decisions, code quality, and long-term maintainability. Thrive in Agile, cross-functional teams where reliability, scalability, and correctness are first-class concerns.",
+  "summary": "Software Development Engineer with 5+ years of experience building and evolving microservices and web applications using TypeScript, JavaScript, and Node.js/NestJS. Strong focus on code quality and test completeness - consistently delivering unit, integration, and end-to-end coverage as part of the engineering process. Experienced collaborating with product and QA teams on requirements refinement, well-defined specifications, and shared definitions of done. Hands-on with cloud-native architecture, AWS deployments, and CI/CD pipelines. Active adopter of AI-assisted development workflows to accelerate delivery while maintaining full ownership of design decisions and long-term maintainability. Thrive in Agile, cross-functional teams where reliability, scalability, and correctness are first-class concerns.",
 
   "experience": [
     {
@@ -18,11 +18,12 @@
       "start": "01/2025",
       "end": "Present",
       "bullets": [
-        "Deepened understanding of Test-Driven Development (TDD) and Spec-Driven Development (SDD) principles through focused study and hands-on practice.",
+        "Focused on continuous learning, technical upskilling, and professional growth.",
+        "Explored Test-Driven Development (TDD) and Spec-Driven Development (SDD) principles through study and hands-on experimental projects.",
         "Studied cloud-native distributed systems, AWS service patterns, observability, and resilience engineering.",
-        "Practiced Python scripting and explored its application in backend automation and data processing.",
         "Applied AI-assisted and agentic development workflows to improve productivity, code quality, and engineering processes.",
-        "Worked on personal and experimental projects to strengthen real-world system design and problem-solving skills."
+        "Practiced Python scripting, building on prior coursework to explore backend automation and tooling.",
+        "Worked on personal and experimental projects to strengthen real-world problem-solving and system design skills."
       ]
     },
     {
@@ -33,13 +34,13 @@
       "end": "12/2024",
       "bullets": [
         "Designed and implemented new modules and features in a NestJS-based microservices architecture, with a strong focus on reliability, scalability, and long-term maintainability.",
-        "Applied Test-Driven Development (TDD) as a core engineering discipline, writing unit and integration tests before implementation to validate behavior and drive design decisions.",
-        "Collaborated with product owners and QA on well-defined specifications, acceptance criteria, and testable requirements, aligning with Spec-Driven Development (SDD) practices.",
         "Applied enterprise architecture principles and design patterns across the full development lifecycle, from discovery and backlog refinement to deployment and monitoring.",
+        "Contributed to technical backlog refinement alongside product owners and QA, translating business requirements into well-defined technical specifications and testable outcomes.",
+        "Implemented unit, integration, and end-to-end tests using Jest, React Testing Library, and Cypress, treating test completeness as part of the engineering definition of done.",
         "Built reusable and accessible UI components using CVA and Radix UI, maintaining strong design system consistency.",
         "Developed responsive screens in Next.js (Web) and React Native (Mobile) based on product prototypes and UX specifications.",
         "Maintained and improved a TypeScript-based codebase, ensuring code quality, readability, and scalability.",
-        "Implemented end-to-end tests using Cypress alongside Jest and React Testing Library, guaranteeing reliability and preventing regressions."
+        "Delivered user-centered experiences aligned with UX best practices, balancing performance, usability, and business goals."
       ]
     },
     {
@@ -49,10 +50,10 @@
       "start": "12/2021",
       "end": "06/2022",
       "bullets": [
-        "Developed and maintained RESTful APIs in Node.js, documenting endpoints with Swagger to enforce clear contract definitions and cross-team alignment - a key pillar of specification-driven delivery.",
-        "Practiced Test-Driven Development (TDD) using Jest and React Testing Library, writing tests ahead of implementation to improve reliability and reduce regression risk.",
-        "Maintained and evolved front-end applications built with React, Redux, TypeScript, and Styled-Components.",
-        "Integrated third-party and internal APIs with advanced request management strategies, including request cancellation to prevent race conditions.",
+        "Maintained and evolved front-end applications built with React, Redux, Context API, TypeScript, and Styled-Components, improving performance and maintainability.",
+        "Developed and maintained RESTful APIs in Node.js, documenting endpoints using Swagger to ensure clear contract definition and cross-team alignment.",
+        "Implemented unit tests using Jest and React Testing Library, increasing code reliability and reducing regression risks.",
+        "Integrated third-party and internal APIs with advanced request management strategies, including request cancellation to optimize resource consumption and prevent race conditions.",
         "Designed and delivered real-time chat features using Socket.IO, enabling low-latency bidirectional communication."
       ]
     },
@@ -63,9 +64,11 @@
       "start": "05/2021",
       "end": "12/2021",
       "bullets": [
-        "Deployed and maintained React applications using AWS S3 static hosting, contributing to CI/CD release processes and cloud-native delivery.",
-        "Implemented unit tests with Jest and React Testing Library following a test-first approach, improving confidence in production deployments.",
-        "Built scalable, accessible interfaces using React, Next.js, Gatsby, TypeScript, and modern JavaScript (ES6+).",
+        "Implemented new features based on product requirements, translating business needs into scalable and maintainable technical solutions.",
+        "Designed and developed user-friendly, accessible interfaces, prioritizing usability, performance, and design principles.",
+        "Built websites and digital platforms using React, Hooks, Gatsby, Next.js, Redux, Context API, TypeScript, and modern JavaScript (ES6+).",
+        "Implemented unit tests with Jest and React Testing Library, improving reliability and reducing regression risks.",
+        "Deployed and maintained React applications using AWS S3 (static hosting), contributing to CI/CD and release processes.",
         "Integrated front-end applications with internal and third-party APIs, ensuring robust data flow and error handling.",
         "Enhanced the company's Design System by implementing Storybook Controls, improving component discoverability and cross-squad adoption.",
         "Mentored new engineers, disseminating best practices in code quality, testing, and front-end architecture."
@@ -92,9 +95,11 @@
       "end": "04/2020",
       "bullets": [
         "Collaborated with the Product team to gather and refine requirements for new digital solutions, translating business needs into technical specifications.",
+        "Designed and developed user-friendly interfaces with a strong focus on UX, usability, and accessibility best practices.",
         "Modeled and implemented digital products using JavaScript (ES6+), React, and Node.js, ensuring clean architecture and maintainable code.",
         "Integrated third-party APIs to collect and process data from client marketing campaigns, enabling data-driven insights.",
-        "Contributed to the early-stage development of an agency SaaS product, enabling clients to manage and track leads via a dashboard platform."
+        "Developed responsive landing pages based on design prototypes using React and Styled-Components, ensuring visual consistency and performance.",
+        "Contributed to the early-stage development of an agency SaaS product that enabled clients to manage and track their own leads via a dashboard platform."
       ]
     },
     {
@@ -142,18 +147,18 @@
         "JavaScript", "TypeScript", "Python", "PHP", "Dart",
         "React", "Next.js", "Gatsby", "React Native", "Flutter",
         "Node.js", "NestJS", "Laravel",
-        "Redux", "Context API",
+        "Redux", "Context API", "jQuery",
         "Styled-Components", "CVA", "Radix UI",
         "Microservices Architecture", "MVC Architecture",
         "RESTful APIs", "WebSockets", "API Integration", "Swagger/OpenAPI",
-        "Test-Driven Development (TDD)", "Spec-Driven Development (SDD)",
         "Unit Testing", "Integration Testing", "E2E Testing",
         "Jest", "React Testing Library", "Cypress",
-        "Acceptance Criteria", "Requirements Gathering", "Backlog Refinement",
         "Repository Pattern", "Design Systems", "Storybook",
         "State Management", "AWS S3", "CI/CD",
+        "UX Principles", "Accessibility", "Responsive Design",
         "Clean Code", "Design Patterns",
-        "Agile Methodologies", "MVP Development", "Mentorship"
+        "Requirements Gathering", "Backlog Refinement", "Agile Methodologies",
+        "MVP Development", "Mentorship"
       ]
     },
     {
@@ -164,7 +169,8 @@
         "Docker", "Kubernetes Foundations",
         "Event-Driven Architecture", "Resilience Patterns",
         "System Design Principles", "SRE Concepts",
-        "AI-Assisted Development"
+        "AI-Assisted Development",
+        "Test-Driven Development (TDD)", "Spec-Driven Development (SDD)"
       ]
     }
   ],
