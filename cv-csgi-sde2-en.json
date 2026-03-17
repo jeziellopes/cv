@@ -1,0 +1,185 @@
+{
+  "personal": {
+    "name": "Jeziel Lopes Carvalho",
+    "title": "Full Stack Software Engineer",
+    "phone": "+5531993841675",
+    "email": "jeziellcarvalho@gmail.com",
+    "linkedin": "https://www.linkedin.com/in/jezielcarvalho",
+    "location": "Ipatinga, Brazil"
+  },
+
+  "summary": "Software Development Engineer with 5+ years of experience building and evolving microservices and web applications using TypeScript, JavaScript, and Node.js/NestJS. Consistent practitioner of Test-Driven Development (TDD) - writing failing tests before implementation to drive design and ensure correctness. Experienced in Spec-Driven Development (SDD) approaches, collaborating with product and QA teams on well-defined acceptance criteria, testable specifications, and behavior-driven requirements. Hands-on with cloud-native architecture, AWS deployments, and CI/CD pipelines. Active adopter of AI-assisted development workflows to accelerate delivery while maintaining full ownership of design decisions, code quality, and long-term maintainability. Thrive in Agile, cross-functional teams where reliability, scalability, and correctness are first-class concerns.",
+
+  "experience": [
+    {
+      "org": "Professional Development",
+      "location": "Remote",
+      "role": "Career Break",
+      "start": "01/2025",
+      "end": "Present",
+      "bullets": [
+        "Deepened understanding of Test-Driven Development (TDD) and Spec-Driven Development (SDD) principles through focused study and hands-on practice.",
+        "Studied cloud-native distributed systems, AWS service patterns, observability, and resilience engineering.",
+        "Practiced Python scripting and explored its application in backend automation and data processing.",
+        "Applied AI-assisted and agentic development workflows to improve productivity, code quality, and engineering processes.",
+        "Worked on personal and experimental projects to strengthen real-world system design and problem-solving skills."
+      ]
+    },
+    {
+      "org": "BR Media Group",
+      "location": "São Paulo, Brazil",
+      "role": "Full Stack Software Engineer",
+      "start": "11/2022",
+      "end": "12/2024",
+      "bullets": [
+        "Designed and implemented new modules and features in a NestJS-based microservices architecture, with a strong focus on reliability, scalability, and long-term maintainability.",
+        "Applied Test-Driven Development (TDD) as a core engineering discipline, writing unit and integration tests before implementation to validate behavior and drive design decisions.",
+        "Collaborated with product owners and QA on well-defined specifications, acceptance criteria, and testable requirements, aligning with Spec-Driven Development (SDD) practices.",
+        "Applied enterprise architecture principles and design patterns across the full development lifecycle, from discovery and backlog refinement to deployment and monitoring.",
+        "Built reusable and accessible UI components using CVA and Radix UI, maintaining strong design system consistency.",
+        "Developed responsive screens in Next.js (Web) and React Native (Mobile) based on product prototypes and UX specifications.",
+        "Maintained and improved a TypeScript-based codebase, ensuring code quality, readability, and scalability.",
+        "Implemented end-to-end tests using Cypress alongside Jest and React Testing Library, guaranteeing reliability and preventing regressions."
+      ]
+    },
+    {
+      "org": "DevSkin Consultoria de TI",
+      "location": "Campinas, Brazil",
+      "role": "Full Stack Developer",
+      "start": "12/2021",
+      "end": "06/2022",
+      "bullets": [
+        "Developed and maintained RESTful APIs in Node.js, documenting endpoints with Swagger to enforce clear contract definitions and cross-team alignment - a key pillar of specification-driven delivery.",
+        "Practiced Test-Driven Development (TDD) using Jest and React Testing Library, writing tests ahead of implementation to improve reliability and reduce regression risk.",
+        "Maintained and evolved front-end applications built with React, Redux, TypeScript, and Styled-Components.",
+        "Integrated third-party and internal APIs with advanced request management strategies, including request cancellation to prevent race conditions.",
+        "Designed and delivered real-time chat features using Socket.IO, enabling low-latency bidirectional communication."
+      ]
+    },
+    {
+      "org": "ioasys",
+      "location": "Belo Horizonte, Brazil",
+      "role": "Senior Front End Developer",
+      "start": "05/2021",
+      "end": "12/2021",
+      "bullets": [
+        "Deployed and maintained React applications using AWS S3 static hosting, contributing to CI/CD release processes and cloud-native delivery.",
+        "Implemented unit tests with Jest and React Testing Library following a test-first approach, improving confidence in production deployments.",
+        "Built scalable, accessible interfaces using React, Next.js, Gatsby, TypeScript, and modern JavaScript (ES6+).",
+        "Integrated front-end applications with internal and third-party APIs, ensuring robust data flow and error handling.",
+        "Enhanced the company's Design System by implementing Storybook Controls, improving component discoverability and cross-squad adoption.",
+        "Mentored new engineers, disseminating best practices in code quality, testing, and front-end architecture."
+      ]
+    },
+    {
+      "org": "Foodway",
+      "location": "Ipatinga, Minas Gerais",
+      "role": "React Native Developer",
+      "start": "04/2020",
+      "end": "03/2021",
+      "bullets": [
+        "Redesigned mobile application screens based on product style guides and high-fidelity prototypes, applying UX, usability, and accessibility best practices.",
+        "Integrated front-end applications with APIs and managed cart and order state flows using React Native and Redux.",
+        "Contributed to the successful MVP launch of a digital ordering mobile application, collaborating cross-functionally to ensure timely delivery and production readiness.",
+        "Worked in parallel on the next-generation app version using Flutter and Dart, implementing the Repository Pattern to improve testability and separation of concerns."
+      ]
+    },
+    {
+      "org": "Plus.me",
+      "location": "Ipatinga, Minas Gerais",
+      "role": "Full Stack Developer",
+      "start": "11/2019",
+      "end": "04/2020",
+      "bullets": [
+        "Collaborated with the Product team to gather and refine requirements for new digital solutions, translating business needs into technical specifications.",
+        "Modeled and implemented digital products using JavaScript (ES6+), React, and Node.js, ensuring clean architecture and maintainable code.",
+        "Integrated third-party APIs to collect and process data from client marketing campaigns, enabling data-driven insights.",
+        "Contributed to the early-stage development of an agency SaaS product, enabling clients to manage and track leads via a dashboard platform."
+      ]
+    },
+    {
+      "org": "Grupo Central",
+      "location": "Ipatinga, Minas Gerais",
+      "role": "Full Stack Developer",
+      "start": "02/2019",
+      "end": "11/2019",
+      "bullets": [
+        "Collaborated with the Product team to gather and refine requirements for new features, translating business needs into technical solutions.",
+        "Designed and implemented user-friendly interfaces with a strong focus on UX, usability, and accessibility principles.",
+        "Modeled and developed a new event scheduling module within a monolithic MVC architecture using Laravel (PHP), JavaScript (ES5/jQuery), and CSS3, ensuring maintainable structure and clear separation of concerns."
+      ]
+    }
+  ],
+
+  "education": [
+    {
+      "institution": "University Center of Eastern Minas Gerais",
+      "location": "Coronel Fabriciano, Brazil",
+      "degree": "Information Systems Bachelor Degree",
+      "start": "01/2012",
+      "end": "01/2021",
+      "bullets": [
+        "Focusing on Computer Software Engineering"
+      ]
+    }
+  ],
+
+  "courses": [
+    {
+      "title": "Computer Network Technician, Information Technology",
+      "institution": "Senac Minas"
+    },
+    {
+      "title": "6.00x: Introduction to Computer Science and Programming using Python",
+      "institution": "MIT"
+    }
+  ],
+
+  "skills": [
+    {
+      "group": "Core Production Experience",
+      "tags": [
+        "JavaScript", "TypeScript", "Python", "PHP", "Dart",
+        "React", "Next.js", "Gatsby", "React Native", "Flutter",
+        "Node.js", "NestJS", "Laravel",
+        "Redux", "Context API",
+        "Styled-Components", "CVA", "Radix UI",
+        "Microservices Architecture", "MVC Architecture",
+        "RESTful APIs", "WebSockets", "API Integration", "Swagger/OpenAPI",
+        "Test-Driven Development (TDD)", "Spec-Driven Development (SDD)",
+        "Unit Testing", "Integration Testing", "E2E Testing",
+        "Jest", "React Testing Library", "Cypress",
+        "Acceptance Criteria", "Requirements Gathering", "Backlog Refinement",
+        "Repository Pattern", "Design Systems", "Storybook",
+        "State Management", "AWS S3", "CI/CD",
+        "Clean Code", "Design Patterns",
+        "Agile Methodologies", "MVP Development", "Mentorship"
+      ]
+    },
+    {
+      "group": "Architecture & Advanced Engineering Focus",
+      "tags": [
+        "Cloud-Native Architecture", "Distributed Systems",
+        "Observability", "Logs", "Metrics", "Traces",
+        "Docker", "Kubernetes Foundations",
+        "Event-Driven Architecture", "Resilience Patterns",
+        "System Design Principles", "SRE Concepts",
+        "AI-Assisted Development"
+      ]
+    }
+  ],
+
+  "languages": [
+    { "name": "English",   "level": "Intermediate", "dots": 3 },
+    { "name": "Español",   "level": "Intermediate", "dots": 3 },
+    { "name": "Português", "level": "Native",        "dots": 5 }
+  ],
+
+  "portfolio": [
+    {
+      "label": "GitHub",
+      "url": "https://github.com/jeziellopes",
+      "display": "github.com/jeziellopes"
+    }
+  ]
+}

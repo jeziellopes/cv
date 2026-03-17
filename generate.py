@@ -2,14 +2,17 @@
 # ============================================================
 # Open-CV - Python generator
 # Usage:
-#   python generate.py                  → writes index.html
-#   python generate.py --pdf            → writes index.html + resume-en.pdf
-#   python generate.py --theme NAME     → use a named theme
-#   python generate.py --lang LANG      → use a specific language
+#   python generate.py                         → writes index.html (cv.json)
+#   python generate.py --pdf                   → writes index.html + resume-en.pdf
+#   python generate.py --theme NAME            → use a named theme
+#   python generate.py --lang LANG             → use a specific language
+#   python generate.py --company COMPANY_ID    → use cv-{company}-{lang}.json
+#                                                outputs resume-{company}-{lang}.pdf
 #
 # Available themes: classic (default), modern, minimal
 # Available languages: en (default), pt-br
 # Combine flags:  python generate.py --lang pt-br --pdf --theme modern
+#                 python generate.py --company csgi-sde2 --pdf --theme modern
 # ============================================================
 
 import json
@@ -35,12 +38,23 @@ if "--lang" in sys.argv:
     if idx + 1 < len(sys.argv):
         LANG = sys.argv[idx + 1]
 
-# ---- paths based on language --------------------------------
+COMPANY = ""
+if "--company" in sys.argv:
+    idx = sys.argv.index("--company")
+    if idx + 1 < len(sys.argv):
+        COMPANY = sys.argv[idx + 1]
 
-CV_FILENAME = "cv.json" if LANG == "en" else f"cv-{LANG}.json"
-CV_PATH   = BASE_DIR / CV_FILENAME
-HTML_OUT  = BASE_DIR / "index.html"
-PDF_OUT   = BASE_DIR / f"resume-{LANG}.pdf"
+# ---- paths based on language / company ----------------------
+
+if COMPANY:
+    CV_FILENAME = f"cv-{COMPANY}-{LANG}.json"
+    PDF_OUT     = BASE_DIR / f"resume-{COMPANY}-{LANG}.pdf"
+else:
+    CV_FILENAME = "cv.json" if LANG == "en" else f"cv-{LANG}.json"
+    PDF_OUT     = BASE_DIR / f"resume-{LANG}.pdf"
+
+CV_PATH  = BASE_DIR / CV_FILENAME
+HTML_OUT = BASE_DIR / "index.html"
 
 # ---- data ---------------------------------------------------
 
@@ -428,7 +442,8 @@ html_doc = f"""<!DOCTYPE html>
 # ---- write HTML ---------------------------------------------
 
 HTML_OUT.write_text(html_doc, encoding="utf-8")
-print(f"✔ index.html written  (lang: {LANG}, theme: {THEME_NAME})")
+company_info = f", company: {COMPANY}" if COMPANY else ""
+print(f"✔ index.html written  (lang: {LANG}, theme: {THEME_NAME}{company_info})")
 
 # ---- export PDF ---------------------------------------------
 
