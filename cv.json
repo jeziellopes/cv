@@ -19,6 +19,7 @@
       "end": "Present",
       "bullets": [
         "Focused on continuous learning, technical upskilling, and professional growth.",
+        "Deepened understanding of Test-Driven Development (TDD) and Spec-Driven Development (SDD) — focusing specifically on how AI-assisted SDLC workflows can be anchored to acceptance criteria and product specifications to preserve delivery correctness and quality.",
         "Studied modern web technologies, backend architecture, and system design.",
         "Deepened knowledge in cloud-native distributed systems backed by observability principles.",
         "Explored and applied AI-powered development workflows to improve productivity, code quality, and engineering processes.",
@@ -121,7 +122,7 @@
 
   "education": [
     {
-      "institution": "University Center of Eastern Minas Gerais",
+      "institution": "Centro Universitário do Leste de Minas Gerais",
       "location": "Coronel Fabriciano, Brazil",
       "degree": "Information Systems Bachelor Degree",
       "start": "01/2012",
