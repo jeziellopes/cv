@@ -113,7 +113,8 @@
       "bullets": [
         "Colaborei com o time de Produto para levantar e refinar requisitos para novas funcionalidades, traduzindo necessidades de negócio em soluções técnicas.",
         "Projetei e implementei interfaces amigáveis com forte foco em UX, usabilidade e princípios de acessibilidade.",
-        "Modelei e desenvolvi um novo módulo de agendamento de eventos dentro de uma arquitetura MVC monolítica usando Laravel (PHP), JavaScript (ES5/jQuery) e CSS3, garantindo estrutura sustentável, clara separação de responsabilidades e organização de código escalável."
+        "Modelei e desenvolvi um novo módulo de agendamento de eventos dentro de uma arquitetura MVC monolítica usando Laravel (PHP), JavaScript (ES5/jQuery) e CSS3, garantindo estrutura sustentável, clara separação de responsabilidades e organização de código escalável.",
+        "Modelei esquemas de banco de dados relacional aplicando técnicas de normalização (1FN–3FN) para eliminar redundâncias e garantir a integridade dos dados na aplicação."
       ]
     }
   ],

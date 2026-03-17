@@ -113,7 +113,8 @@
       "bullets": [
         "Collaborated with the Product team to gather and refine requirements for new features, translating business needs into technical solutions.",
         "Designed and implemented user-friendly interfaces with a strong focus on UX, usability, and accessibility principles.",
-        "Modeled and developed a new event scheduling module within a monolithic MVC architecture using Laravel (PHP), JavaScript (ES5/jQuery), and CSS3, ensuring maintainable structure, clear separation of concerns, and scalable code organization."
+        "Modeled and developed a new event scheduling module within a monolithic MVC architecture using Laravel (PHP), JavaScript (ES5/jQuery), and CSS3, ensuring maintainable structure, clear separation of concerns, and scalable code organization.",
+        "Modeled relational database schemas applying normalization techniques (1NF–3NF) to eliminate redundancy and ensure data integrity across the application."
       ]
     }
   ],
