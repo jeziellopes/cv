@@ -1,0 +1,187 @@
+{
+  "personal": {
+    "name": "Jeziel Lopes Carvalho",
+    "title": "Full Stack Software Engineer",
+    "phone": "+5531993841675",
+    "email": "jeziellcarvalho@gmail.com",
+    "linkedin": "https://www.linkedin.com/in/jezielcarvalho",
+    "portfolio": "https://jeziellopes.dev",
+    "github": "https://github.com/jeziellopes",
+    "location": "Ipatinga, Brazil"
+  },
+
+  "summary": "Full Stack Software Engineer with 5+ years of experience building web and mobile applications across the full stack — React, React Native, Next.js, Node.js, and NestJS. Track record of delivering and maintaining production mobile apps (iOS and Android), building RESTful APIs and backend services, and collaborating closely with product and design to ship reliable, user-centered features. Comfortable working across frontend, backend, and integrations in fast-paced, remote-first environments. Focused on code quality, test coverage, and continuous improvement. Active adopter of AI-assisted development workflows to enhance productivity and engineering processes.",
+
+  "experience": [
+    {
+      "org": "Professional Development",
+      "location": "Remote",
+      "role": "Career Break",
+      "start": "01/2025",
+      "end": "Present",
+      "bullets": [
+        "Explored and applied AI-powered development workflows and automation to improve productivity, engineering processes, and code quality.",
+        "Deepened understanding of Test-Driven Development (TDD) and Spec-Driven Development (SDD) — focusing on how AI-assisted SDLC workflows can be anchored to acceptance criteria to preserve delivery correctness.",
+        "Studied modern backend architecture, distributed systems, cloud-native infrastructure, and observability principles.",
+        "Worked on personal and experimental projects to strengthen real-world problem-solving and system design skills."
+      ]
+    },
+    {
+      "org": "BR Media Group",
+      "location": "São Paulo, Brazil",
+      "role": "Full Stack Software Engineer",
+      "start": "11/2022",
+      "end": "12/2024",
+      "bullets": [
+        "Worked across the full stack — React Native (Mobile) and Next.js (Web) — delivering and maintaining production applications used by end users.",
+        "Built and implemented new modules and features in a NestJS-based microservices backend, participating in technical discussions and contributing to implementation decisions.",
+        "Built and maintained scalable APIs and integrations, ensuring reliability, performance, and long-term maintainability.",
+        "Contributed to technical backlog refinement alongside product and QA, translating business requirements into well-defined technical specifications.",
+        "Implemented unit, integration, and end-to-end tests using Jest, React Testing Library, and Cypress, treating test completeness as a core engineering practice.",
+        "Built reusable and accessible UI components using CVA and Radix UI, maintaining strong design system consistency.",
+        "Delivered user-centered experiences aligned with UX best practices, balancing performance, usability, and business goals."
+      ]
+    },
+    {
+      "org": "DevSkin Consultoria de TI",
+      "location": "Campinas, Brazil",
+      "role": "Full Stack Developer",
+      "start": "12/2021",
+      "end": "06/2022",
+      "bullets": [
+        "Developed and maintained RESTful APIs in Node.js and integrated third-party and internal services, ensuring reliable data contracts and cross-team alignment.",
+        "Designed and delivered real-time chat features using Socket.IO, enabling low-latency bidirectional communication in production.",
+        "Maintained and evolved front-end applications built with React, Redux, TypeScript, and Styled-Components, improving performance and maintainability.",
+        "Applied advanced request management strategies (cancellation, race condition prevention) to optimize resource consumption.",
+        "Implemented unit tests using Jest and React Testing Library, increasing code reliability and reducing regression risks."
+      ]
+    },
+    {
+      "org": "ioasys",
+      "location": "Belo Horizonte, Brazil",
+      "role": "Senior Front End Developer",
+      "start": "05/2021",
+      "end": "12/2021",
+      "bullets": [
+        "Deployed and maintained React applications using AWS S3 (static hosting), contributing to CI/CD and release processes.",
+        "Built websites and digital platforms using React, Next.js, Gatsby, Redux, TypeScript, and modern JavaScript (ES6+), focusing on scalability and maintainability.",
+        "Implemented new features based on product requirements, translating business needs into reliable, maintainable technical solutions.",
+        "Enhanced the company's Design System by implementing Storybook Controls, improving component discoverability and cross-squad adoption.",
+        "Mentored new engineers, sharing best practices in code quality, testing, and front-end architecture.",
+        "Implemented unit tests with Jest and React Testing Library, improving reliability and reducing regression risks."
+      ]
+    },
+    {
+      "org": "Foodway",
+      "location": "Ipatinga, Minas Gerais",
+      "role": "React Native Developer",
+      "start": "04/2020",
+      "end": "03/2021",
+      "bullets": [
+        "Shipped and maintained a production mobile application (iOS and Android) using React Native, delivering a digital food-ordering experience to real users.",
+        "Contributed to the successful MVP launch, collaborating cross-functionally across design, product, and engineering to ensure timely production readiness.",
+        "Managed cart and order state flows using Redux, and integrated the app with backend APIs for live data and order processing.",
+        "Built and iterated on the next-generation app version using Flutter and Dart, implementing the Repository Pattern to improve testability and separation of concerns.",
+        "Redesigned application screens based on product style guides and high-fidelity prototypes, applying UX, usability, and accessibility best practices."
+      ]
+    },
+    {
+      "org": "Plus.me",
+      "location": "Ipatinga, Minas Gerais",
+      "role": "Full Stack Developer",
+      "start": "11/2019",
+      "end": "04/2020",
+      "bullets": [
+        "Contributed to the early-stage development of an agency SaaS product enabling clients to manage and track their own leads via a dashboard platform — operating in a startup, high-growth environment.",
+        "Modeled and implemented digital products using JavaScript (ES6+), React, and Node.js, ensuring clean architecture and maintainable code.",
+        "Integrated third-party APIs to collect and process data from client marketing campaigns, enabling data-driven insights.",
+        "Collaborated with the Product team to gather and refine requirements, translating business needs into technical specifications.",
+        "Developed responsive landing pages based on design prototypes using React and Styled-Components, ensuring visual consistency and performance."
+      ]
+    },
+    {
+      "org": "Grupo Central",
+      "location": "Ipatinga, Minas Gerais",
+      "role": "Full Stack Developer",
+      "start": "02/2019",
+      "end": "11/2019",
+      "bullets": [
+        "Designed and developed user-friendly interfaces with a strong focus on UX, usability, and accessibility principles.",
+        "Modeled and developed a new event scheduling module within a monolithic MVC architecture using Laravel (PHP), JavaScript, and CSS3.",
+        "Modeled relational database schemas applying normalization techniques (1NF–3NF) to ensure data integrity across the application."
+      ]
+    }
+  ],
+
+  "education": [
+    {
+      "institution": "Centro Universitário do Leste de Minas Gerais",
+      "location": "Coronel Fabriciano, Brazil",
+      "degree": "Information Systems Bachelor Degree",
+      "start": "01/2012",
+      "end": "01/2021",
+      "bullets": [
+        "Focusing on Computer Software Engineering"
+      ]
+    }
+  ],
+
+  "courses": [
+    {
+      "title": "Computer Network Technician, Information Technology",
+      "institution": "Senac Minas"
+    },
+    {
+      "title": "6.00x: Introduction to Computer Science and Programming using Python",
+      "institution": "MIT"
+    }
+  ],
+
+  "skills": [
+    {
+      "group": "Core Production Experience",
+      "tags": [
+        "React Native", "React", "Node.js", "NestJS", "TypeScript", "JavaScript",
+        "Next.js", "Gatsby", "Flutter",
+        "Redux", "Context API",
+        "RESTful APIs", "API Integration", "WebSockets", "Socket.IO", "Swagger/OpenAPI",
+        "Microservices Architecture", "MVC Architecture",
+        "Unit Testing", "Integration Testing", "E2E Testing",
+        "Jest", "React Testing Library", "Cypress",
+        "AWS S3", "CI/CD",
+        "Styled-Components", "CVA", "Radix UI", "Design Systems", "Storybook",
+        "State Management", "Repository Pattern",
+        "UX Principles", "Accessibility", "Responsive Design",
+        "Clean Code", "Design Patterns",
+        "Backlog Refinement", "Requirements Gathering", "Agile Methodologies",
+        "MVP Development", "Mentorship",
+        "AI-Assisted Development", "PHP", "Dart"
+      ]
+    },
+    {
+      "group": "Architecture & Advanced Engineering Focus",
+      "tags": [
+        "Cloud-Native Architecture", "Distributed Systems",
+        "Observability", "Logs", "Metrics", "Traces",
+        "Docker", "Kubernetes Foundations",
+        "Event-Driven Architecture", "Resilience Patterns",
+        "System Design Principles", "SRE Concepts",
+        "Test-Driven Development (TDD)", "Spec-Driven Development (SDD)"
+      ]
+    }
+  ],
+
+  "languages": [
+    { "name": "English",   "level": "Intermediate", "dots": 3 },
+    { "name": "Español",   "level": "Intermediate", "dots": 3 },
+    { "name": "Português", "level": "Native",        "dots": 5 }
+  ],
+
+  "portfolio": [
+    {
+      "label": "GitHub",
+      "url": "https://github.com/jeziellopes",
+      "display": "github.com/jeziellopes"
+    }
+  ]
+}
