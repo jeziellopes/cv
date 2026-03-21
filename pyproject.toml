@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cv"
+version = "0.1.0"
+description = "Resume generator — edit cv.json, get a PDF."
+requires-python = ">=3.10"
+dependencies = [
+    "playwright>=1.44.0",
+    "typer>=0.12.0",
+]
+
+[project.scripts]
+cv = "generate:app"
+
+[tool.setuptools]
+py-modules = ["generate"]
