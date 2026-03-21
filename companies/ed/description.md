@@ -1,3 +1,5 @@
+https://somosed.inhire.app/vagas/aaee6a74-bae7-434b-9681-91d571f6df41/desenvolvedora-front-end-pleno-react
+
 Na ed, desenvolvemos softwares inteligentes e soluções tecnológicas que impulsionam pessoas, negócios e a sociedade. Somos movidos por inovação, resultados reais e por um ambiente baseado em colaboração, respeito e transparência.
 
 Valorizamos quem você é. Mais do que experiência, buscamos atitude, vontade de aprender e disposição para fazer a diferença, independentemente de idade, gênero ou origem.
