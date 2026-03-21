@@ -5,6 +5,8 @@
     "phone": "+5531993841675",
     "email": "jeziellcarvalho@gmail.com",
     "linkedin": "https://www.linkedin.com/in/jezielcarvalho",
+    "portfolio": "https://jeziellopes.dev",
+    "github": "https://github.com/jeziellopes",
     "location": "Ipatinga, Brazil"
   },
 
@@ -180,13 +182,5 @@
     { "name": "English",   "level": "Intermediate", "dots": 3 },
     { "name": "Español",   "level": "Intermediate", "dots": 3 },
     { "name": "Português", "level": "Native",        "dots": 5 }
-  ],
-
-  "portfolio": [
-    {
-      "label": "GitHub",
-      "url": "https://github.com/jeziellopes",
-      "display": "github.com/jeziellopes"
-    }
   ]
 }
