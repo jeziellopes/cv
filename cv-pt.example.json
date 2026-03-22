@@ -1,0 +1,81 @@
+{
+  "personal": {
+    "name": "Seu Nome Completo",
+    "title": "Seu Título Profissional",
+    "phone": "+55 31 9 9999-9999",
+    "email": "seu@email.com",
+    "linkedin": "https://linkedin.com/in/seuhandle",
+    "portfolio": "https://seu-portfolio.dev",
+    "github": "https://github.com/seuhandle",
+    "location": "Cidade, País"
+  },
+  "summary": "Breve resumo profissional destacando suas competências principais, anos de experiência e principais conquistas. Mantenha conciso e focado no valor entregue.",
+  "experience": [
+    {
+      "org": "Nome da Empresa",
+      "location": "Cidade, País",
+      "role": "Título da Posição",
+      "start": "MM/YYYY",
+      "end": "MM/YYYY ou Presente",
+      "bullets": [
+        "Conquista ou responsabilidade chave 1",
+        "Conquista ou responsabilidade chave 2",
+        "Conquista ou responsabilidade chave 3"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "institution": "Nome da Universidade",
+      "location": "Cidade, País",
+      "degree": "Nome do Grau/Diploma",
+      "start": "MM/YYYY",
+      "end": "MM/YYYY",
+      "bullets": [
+        "Foco ou realização notável"
+      ]
+    }
+  ],
+  "courses": [
+    {
+      "title": "Nome do Curso",
+      "institution": "Nome da Instituição"
+    }
+  ],
+  "skills": [
+    {
+      "group": "Competências Principais",
+      "tags": [
+        "Habilidade 1",
+        "Habilidade 2",
+        "Habilidade 3",
+        "Habilidade 4",
+        "Habilidade 5"
+      ]
+    },
+    {
+      "group": "Habilidades Adicionais",
+      "tags": [
+        "Habilidade 6",
+        "Habilidade 7"
+      ]
+    }
+  ],
+  "languages": [
+    {
+      "name": "Inglês",
+      "level": "Intermediário",
+      "dots": 3
+    },
+    {
+      "name": "Espanhol",
+      "level": "Intermediário",
+      "dots": 3
+    },
+    {
+      "name": "Português",
+      "level": "Nativo",
+      "dots": 5
+    }
+  ]
+}

@@ -25,10 +25,30 @@ open-cv/
 
 ## Quick start
 
-```bash
-pip install -e .
-playwright install chromium
-```
+### For new candidates
+
+1. **Copy the template:**
+   ```bash
+   cp cv.example.json cv.json       # English resume template
+   cp cv-pt.example.json cv-pt.json  # Portuguese resume template
+   ```
+
+2. **Edit your data:**
+   Fill in your personal info, experiences, education, skills, and languages in both JSON files.
+
+3. **Generate PDFs:**
+   ```bash
+   pip install -e .
+   playwright install chromium
+   cv generate --pdf --lang en      # Generate English resume
+   cv generate --pdf --lang pt      # Generate Portuguese resume
+   ```
+
+Your generated PDFs will be `resume-en.pdf` and `resume-pt.pdf` in the root directory.
+
+### For existing candidates
+
+The `cv.json` and `cv-pt.json` files are gitignored - they contain your personal data. If you've already been using this tool, your existing files will continue to work.
 
 ## Commands
 

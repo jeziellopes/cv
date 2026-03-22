@@ -8,6 +8,15 @@ index.html
 # resume-*.pdf uncomment to ignore all generated PDFs
 # resume.pdf is intentionally tracked as a demo
 
+# Candidate-specific data (use cv.example.json and cv-pt.example.json as templates)
+cv.json
+cv-pt.json
+companies/
+messages/
+*.pdf
+resume
+owlish.md
+
 # Python
 __pycache__/
 *.py[cod]
@@ -66,3 +75,4 @@ Thumbs.db
 node_modules/
 package-lock.json
 yarn.lock
+

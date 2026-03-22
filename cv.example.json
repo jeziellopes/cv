@@ -1,0 +1,81 @@
+{
+  "personal": {
+    "name": "Your Full Name",
+    "title": "Your Job Title",
+    "phone": "+1 555 000 0000",
+    "email": "you@example.com",
+    "linkedin": "https://linkedin.com/in/yourhandle",
+    "portfolio": "https://yoursite.dev",
+    "github": "https://github.com/yourhandle",
+    "location": "City, Country"
+  },
+  "summary": "Brief professional summary highlighting your core competencies, years of experience, and key achievements. Keep it concise and focused on value delivered.",
+  "experience": [
+    {
+      "org": "Company Name",
+      "location": "City, Country",
+      "role": "Job Title",
+      "start": "MM/YYYY",
+      "end": "MM/YYYY or Present",
+      "bullets": [
+        "Key achievement or responsibility 1",
+        "Key achievement or responsibility 2",
+        "Key achievement or responsibility 3"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "institution": "University Name",
+      "location": "City, Country",
+      "degree": "Degree Name",
+      "start": "MM/YYYY",
+      "end": "MM/YYYY",
+      "bullets": [
+        "Notable focus or achievement"
+      ]
+    }
+  ],
+  "courses": [
+    {
+      "title": "Course Name",
+      "institution": "Institution Name"
+    }
+  ],
+  "skills": [
+    {
+      "group": "Core Competencies",
+      "tags": [
+        "Skill 1",
+        "Skill 2",
+        "Skill 3",
+        "Skill 4",
+        "Skill 5"
+      ]
+    },
+    {
+      "group": "Additional Skills",
+      "tags": [
+        "Skill 6",
+        "Skill 7"
+      ]
+    }
+  ],
+  "languages": [
+    {
+      "name": "English",
+      "level": "Intermediate",
+      "dots": 3
+    },
+    {
+      "name": "Spanish",
+      "level": "Intermediate",
+      "dots": 3
+    },
+    {
+      "name": "Portuguese",
+      "level": "Native",
+      "dots": 5
+    }
+  ]
+}
