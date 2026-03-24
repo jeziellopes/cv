@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ============================================================
-# Open-CV - CLI
+# cv - CLI
 # Install:  pip install -e .
 # Usage:
 #   cv generate                                  → index.html (cv.json, classic)

@@ -2,12 +2,12 @@
 
 > Your resume. Your code. Always up to date.
 
-Open-CV is a free, open-source resume generator. Edit `cv.json`, run one command, get a pixel-perfect HTML file and a print-ready PDF - no third-party login, no subscription, no watermark.
+A free, open-source resume generator. Edit `cv.json`, run one command, get a pixel-perfect HTML file and a print-ready PDF - no third-party login, no subscription, no watermark.
 
 ## Project structure
 
 ```
-open-cv/
+cv/
 ├── cv.json             ← base resume data in English (edit this)
 ├── cv-pt.json          ← base resume data in Portuguese-BR
 ├── generate.py         ← template engine + PDF exporter
@@ -212,7 +212,7 @@ MIT - use, fork, share freely.
 
 ## Roadmap
 
-> Vision: evolve open-cv into a personal CV automation pipeline - one command from a recruiter message to a tailored PDF.
+> Vision: evolve cv into a personal CV automation pipeline - one command from a recruiter message to a tailored PDF.
 
 ### Phase 1 - Manual message drop *(now)*
 Drop LinkedIn recruiter messages as `.md` files into `./messages/`.
