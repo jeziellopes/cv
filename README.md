@@ -59,6 +59,7 @@ cv generate --lang pt --pdf             # Portuguese version
 cv generate --theme modern --pdf        # different theme
 cv generate --company owlish --pdf      # tailored: companies/owlish/JezielLopesCarvalho-en.pdf
 cv new acme                             # scaffold companies/acme/cv-en.json from base cv.json
+cv translate --text "Your text here" --from en --to pt  # translate with keyword preservation
 ```
 
 | Option | Default | Description |
@@ -163,6 +164,23 @@ Optional field — renders as an extra line in the CV header when present. Omit 
 ```
 
 `contract` and `note` are optional. `amount` is required if the key is present.
+
+## Translation with keyword preservation
+
+When translating your CV to multiple languages, technical terms (React, Design Systems, etc.) should remain in English for consistency. Use the built-in `translate` command:
+
+```bash
+cv translate --text "Your summary here" --from en --to pt
+```
+
+The command automatically:
+1. Replaces English keywords with placeholders (e.g., React → {TECH_0})
+2. Translates the text to your target language
+3. Restores the keywords
+
+Supported keywords include: React, TypeScript, Design Systems, TDD, AWS, etc.
+
+> **Note:** Requires `google-translate-api`. Install with: `pip install google-translate-api`
 
 ## Page layout & margins
 
