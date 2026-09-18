@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ============================================================
-# cv - CLI
+# cv: CLI
 # Install:  pip install -e .
 # Usage:
 #   cv generate                                  → index.html (cv.json, classic)
@@ -14,6 +14,7 @@
 # ============================================================
 
 import json
+import re
 import sys
 import html as _html
 import shutil
@@ -23,104 +24,85 @@ from typing import Optional
 import typer
 from typing_extensions import Annotated
 
+import ats
+
 BASE_DIR = Path(__file__).resolve().parent
 
-app = typer.Typer(help="cv - edit cv.json, run one command, get a PDF.")
+app = typer.Typer(help="cv: edit cv.json, run one command, get a PDF.")
 
 # ---- helpers ------------------------------------------------
 
+# Variants ATS parsers choke on; normalised to ASCII at the output boundary.
+_GLYPHS = str.maketrans({
+    "\u2013": "-",   # en dash
+    "\u2014": "-",   # em dash
+    "\u2212": "-",   # minus sign
+    "\u2011": "-",   # non-breaking hyphen
+    "\u00a0": " ",   # non-breaking space
+    "\u200b": "",    # zero-width space
+    "\u200c": "",    # zero-width non-joiner
+    "\u200d": "",    # zero-width joiner
+    "\u2315": "",    # option key glyph
+})
+
 def esc(s=""):
-    return _html.escape(str(s or ""), quote=True)
+    return _html.escape(str(s or "").translate(_GLYPHS), quote=True)
+
+def date_range(start, end):
+    return f"{esc(start)} - {esc(end)}"
 
 def bullets(items):
     return "\n".join(
-        f'<li><span class="bullet-dot">•</span><span>{esc(b)}</span></li>'
+        f'      <li>{esc(b)}</li>'
         for b in (items or [])
     )
 
 def experience_item(e):
     return f"""
-<div class="item">
-  <div class="item-header">
-    <span class="item-org">{esc(e["org"])}</span>
-    <span class="item-location">{esc(e["location"])}</span>
-  </div>
-  <div class="item-row">
-    <span class="item-position">{esc(e["role"])}</span>
-    <span class="item-date">{esc(e["start"])} – {esc(e["end"])}</span>
-  </div>
-  <ul class="bullet-list">
-    {bullets(e.get("bullets", []))}
-  </ul>
-</div>"""
+    <article class="item">
+      <h3 class="item-org">{esc(e["org"])}</h3>
+      <p class="item-role">{esc(e["role"])}</p>
+      <p class="item-meta">{esc(e["location"])} | {date_range(e["start"], e["end"])}</p>
+      <ul class="bullet-list">
+{bullets(e.get("bullets", []))}
+      </ul>
+    </article>"""
 
 def education_item(e):
     return f"""
-<div class="item">
-  <div class="item-header">
-    <span class="item-org">{esc(e["institution"])}</span>
-    <span class="item-location">{esc(e["location"])}</span>
-  </div>
-  <div class="item-row">
-    <span class="item-position">{esc(e["degree"])}</span>
-    <span class="item-date">{esc(e["start"])} – {esc(e["end"])}</span>
-  </div>
-  <ul class="bullet-list">
-    {bullets(e.get("bullets", []))}
-  </ul>
-</div>"""
+    <article class="item">
+      <h3 class="item-org">{esc(e["institution"])}</h3>
+      <p class="item-role">{esc(e["degree"])}</p>
+      <p class="item-meta">{esc(e["location"])} | {date_range(e["start"], e["end"])}</p>
+      <ul class="bullet-list">
+{bullets(e.get("bullets", []))}
+      </ul>
+    </article>"""
 
 def course_item(c):
     return f"""
-<div class="course-item">
-  <span class="course-title">{esc(c["title"])}</span>
-  <span class="course-separator"></span>
-  <span class="course-institution">{esc(c["institution"])}</span>
-</div>"""
+    <p class="course-item">{esc(c["title"])} | {esc(c["institution"])}</p>"""
 
 def skill_group(s):
-    tags = "\n    ".join(
-        f'<span class="skill-tag">{esc(t)}</span>' for t in s["tags"]
-    )
+    tags = ", ".join(esc(t) for t in s["tags"])
     return f"""
-<div class="skill-group">
-  <span class="skill-label">{esc(s["group"])}</span>
-  <div class="skill-tags">
-    {tags}
-  </div>
-</div>"""
+    <p class="skill-group"><span class="skill-label">{esc(s["group"])}:</span> {tags}</p>"""
 
 def dot(filled):
     cls = "dot-filled" if filled else "dot-empty"
-    return f'<div class="dot {cls}"></div>'
+    return f'<span class="dot {cls}"></span>'
 
 def language_item(lang):
-    dots = "\n    ".join(dot(i < lang["dots"]) for i in range(5))
+    dots = "".join(dot(i < lang["dots"]) for i in range(5))
     return f"""
-<div class="language-item">
-  <div class="language-name">{esc(lang["name"])}</div>
-  <div class="language-level">{esc(lang["level"])}</div>
-  <div class="language-dots">
-    {dots}
-  </div>
-</div>"""
-
-def portfolio_item(p):
-    return f"""
-<div class="portfolio-item">
-  <div class="portfolio-icon">⌥</div>
-  <div>
-    <div class="portfolio-title">{esc(p["label"])}</div>
-    <div class="portfolio-link"><a href="{esc(p["url"])}" target="_blank">{esc(p["display"])}</a></div>
-  </div>
-</div>"""
+    <p class="language-item"><span class="language-name">{esc(lang["name"])}</span> <span class="language-level">{esc(lang["level"])}</span> <span class="language-dots">{dots}</span></p>"""
 
 def contact_item(text, href=None):
     if href:
-        return f'<span class="contact-item"><a href="{esc(href)}" target="_blank">{esc(text)}</a></span>'
+        return f'<a class="contact-item" href="{esc(href)}" target="_blank">{esc(text)}</a>'
     return f'<span class="contact-item">{esc(text)}</span>'
 
-SEP = '<span class="contact-separator">·</span>'
+SEP = ' <span class="contact-separator">|</span> '
 
 # ---- themes -------------------------------------------------
 # Each theme provides:
@@ -128,7 +110,7 @@ SEP = '<span class="contact-separator">·</span>'
 #   css_vars   – :root variable block (controls colors / fonts)
 #   extra_css  – any additional CSS unique to the theme
 
-PAGE_MARGIN = 50  # px - shared by all themes
+PAGE_MARGIN = 50  # px, shared by all themes
 
 _STRUCTURAL_CSS = f"""
 *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
@@ -161,15 +143,9 @@ body {{
   color: var(--color-muted); margin-top: 2px;
 }}
 
-.header-contacts {{
-  display: flex; flex-wrap: wrap;
-  justify-content: center; align-items: center;
-  gap: 0; margin-top: 4px;
-}}
-
-.contact-item {{ font-family: var(--font-body); font-size: 13px; line-height: 16px; padding-bottom: 2px; white-space: nowrap; }}
-.contact-item a {{ color: inherit; text-decoration: none; }}
-.contact-separator {{ margin: 0 6px; color: var(--color-muted); font-size: 13px; }}
+.contact-line {{ margin-top: 4px; font-family: var(--font-body); font-size: 13px; line-height: 18px; }}
+.contact-item {{ color: inherit; text-decoration: none; }}
+.contact-separator {{ margin: 0 6px; color: var(--color-muted); }}
 
 .section {{ margin-bottom: 12px; }}
 
@@ -178,51 +154,30 @@ body {{
   font-size: 18px; line-height: 23px; color: var(--color-accent);
   border-bottom: 1px solid var(--color-border);
   padding: 6px 12px 0; margin-bottom: 0;
+  break-after: avoid;
 }}
 
 .item {{ padding: 6px 12px; break-inside: avoid; }}
-.section-title {{ break-after: avoid; }}
+.item-org {{ font-family: var(--font-body); font-weight: 700; font-size: 18px; line-height: 22px; color: var(--color-muted); }}
+.item-role {{ font-family: var(--font-body); font-weight: 400; font-size: 15px; line-height: 18px; color: var(--color-text); }}
+.item-meta {{ font-family: var(--font-body); font-size: 15px; line-height: 18px; color: var(--color-text); }}
 
-.item-header {{ display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: nowrap; }}
-.item-org {{ font-family: var(--font-body); font-weight: 400; font-size: 18px; line-height: 22px; color: var(--color-muted); }}
-.item-location {{ font-family: var(--font-body); font-size: 15px; line-height: 18px; color: var(--color-text); text-align: right; white-space: nowrap; }}
-.item-row {{ display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: nowrap; margin-top: 1px; }}
-.item-position {{ font-family: var(--font-body); font-weight: 400; font-size: 15px; line-height: 18px; color: var(--color-text); }}
-.item-date {{ font-family: var(--font-body); font-weight: 400; font-size: 15px; line-height: 18px; color: var(--color-text); white-space: nowrap; text-align: right; flex-shrink: 0; }}
+.bullet-list {{ list-style: disc outside; margin: 4px 0 0 18px; }}
+.bullet-list li {{ font-family: var(--font-body); font-size: 13px; line-height: 18px; }}
 
-.bullet-list {{ list-style: none; margin-top: 4px; }}
-.bullet-list li {{ display: flex; align-items: flex-start; font-family: var(--font-body); font-size: 13px; line-height: 18px; gap: 4px; }}
-.bullet-dot {{ flex-shrink: 0; line-height: 18px; }}
+.summary-text {{ font-family: var(--font-body); font-size: 13px; line-height: 18px; white-space: pre-wrap; }}
 
-.summary-text {{ font-family: var(--font-body); font-size: 13px; line-height: 18px; text-align: left; white-space: pre-wrap; }}
+.skill-group {{ font-family: var(--font-body); font-size: 13px; line-height: 18px; padding: 6px 12px; }}
+.skill-label {{ font-weight: 700; color: var(--color-muted); }}
 
-.skill-group {{ display: flex; flex-wrap: wrap; align-items: baseline; gap: 0; padding: 6px 12px; }}
-.skill-label {{ font-family: var(--font-body); font-size: 15px; line-height: 18px; color: var(--color-muted); white-space: nowrap; flex-shrink: 0; }}
-.skill-label::after {{ content: ': '; }}
-.skill-tags {{ display: flex; flex-wrap: wrap; align-items: center; gap: 0; }}
-.skill-tag {{ font-family: var(--font-body); font-size: 13px; line-height: 18px; color: var(--color-text); }}
-.skill-tag:not(:last-child)::after {{ content: '\\00B7'; font-weight: 700; margin: 0 5px; color: var(--color-text); }}
-
-.languages-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); }}
-.language-item {{ padding: 6px 12px; }}
-.language-name {{ font-family: var(--font-body); font-size: 15px; line-height: 18px; color: var(--color-text); }}
-.language-level {{ font-family: var(--font-body); font-size: 13px; line-height: 16px; color: var(--color-text); }}
-.language-dots {{ display: flex; gap: 4px; margin-top: 3px; }}
-.dot {{ width: 8px; height: 8px; border-radius: 50%; }}
+.language-item {{ font-family: var(--font-body); font-size: 15px; line-height: 18px; padding: 6px 12px; }}
+.language-level {{ font-size: 13px; color: var(--color-muted); }}
+.language-dots {{ display: inline-flex; gap: 4px; margin-left: 4px; vertical-align: middle; }}
+.dot {{ width: 8px; height: 8px; border-radius: 50%; display: inline-block; }}
 .dot-filled {{ background: var(--color-accent); }}
 .dot-empty  {{ background: #e4e4e4; }}
 
-.portfolio-grid {{ display: grid; grid-template-columns: repeat(3, 1fr); }}
-.portfolio-item {{ display: flex; align-items: flex-start; gap: 8px; padding: 6px 12px; }}
-.portfolio-icon {{ font-size: 20px; color: var(--color-muted); line-height: 1; margin-top: 2px; }}
-.portfolio-title {{ font-family: var(--font-body); font-size: 15px; line-height: 18px; color: var(--color-text); font-weight: 400; }}
-.portfolio-link {{ font-family: var(--font-body); font-size: 13px; line-height: 16px; color: var(--color-text); word-break: break-all; }}
-.portfolio-link a {{ color: inherit; text-decoration: none; }}
-
-.course-item {{ display: flex; align-items: baseline; flex-wrap: nowrap; padding: 6px 12px; gap: 0; break-inside: avoid; }}
-.course-title {{ font-family: var(--font-body); font-weight: 400; font-size: 15px; line-height: 18px; color: var(--color-muted); flex-shrink: 1; white-space: nowrap; }}
-.course-separator {{ flex: 1; border-bottom: 1px dotted #ccc; margin: 0 8px; position: relative; top: -3px; min-width: 12px; }}
-.course-institution {{ font-family: var(--font-body); font-size: 13px; line-height: 16px; color: var(--color-text); white-space: nowrap; }}
+.course-item {{ font-family: var(--font-body); font-size: 15px; line-height: 18px; padding: 6px 12px; break-inside: avoid; }}
 
 @media print {{
   body  {{ background: none; }}
@@ -280,8 +235,7 @@ THEMES = {
     },
 
     # ── Minimal ─────────────────────────────────────────────
-    # IBM Plex Sans; very light grey palette; no bold contrast -
-    # clean, understated, ATS-friendly.
+    # IBM Plex Sans; very light grey palette; no bold contrast; clean and understated.
     "minimal": {
         "fonts_url": (
             "https://fonts.googleapis.com/css2?"
@@ -340,7 +294,7 @@ def build_html(cv: dict, theme_name: str) -> str:
     if p.get("github"):
         line2_items.append(contact_item(p["github"], p["github"]))
     line2_items.append(contact_item(p["location"]))
-    line2_html = f""" <span class="contact-separator">·</span>""".join(line2_items)
+    line2_html = SEP.join(line2_items)
     
     salary_row = ""
     if sal:
@@ -350,9 +304,7 @@ def build_html(cv: dict, theme_name: str) -> str:
         if sal.get("note"):
             parts.append(esc(sal["note"]))
         salary_row = f"""
-    <div class="header-contacts" style="margin-top:2px;">
-      {contact_item("Salary expectation: " + " · ".join(parts))}
-    </div>"""
+    <p class="contact-line">{contact_item("Salary expectation: " + " | ".join(parts))}</p>"""
     
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -361,7 +313,7 @@ def build_html(cv: dict, theme_name: str) -> str:
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{esc(p["name"])} - Resume</title>
   {build_fonts_link(theme_name)}
-  <!-- Generated by cv - edit cv.json, not this file -->
+  <!-- Generated by cv: edit cv.json, not this file -->
   <style>{build_css(theme_name)}</style>
 </head>
 <body>
@@ -369,52 +321,44 @@ def build_html(cv: dict, theme_name: str) -> str:
 <div class="resume">
 
   <header class="resume-header">
-    <div class="header-name">{esc(p["name"])}</div>
-    <div class="header-title">{esc(p["title"])}</div>
-    <div class="header-contacts">
-      {contact_item(p["phone"])}
-      {SEP}
-      {contact_item(p["email"], f'mailto:{p["email"]}')}
-      {SEP}
-      {contact_item(p["linkedin"], p["linkedin"])}
-    </div>
-    <div class="header-contacts" style="margin-top:2px;">
+    <h1 class="header-name">{esc(p["name"])}</h1>
+    <p class="header-title">{esc(p["title"])}</p>
+    <p class="contact-line">
+      {contact_item(p["phone"])}{SEP}{contact_item(p["email"], f'mailto:{p["email"]}')}{SEP}{contact_item(p["linkedin"], p["linkedin"])}
+    </p>
+    <p class="contact-line">
       {line2_html}
-    </div>{salary_row}
+    </p>{salary_row}
   </header>
 
   <section class="section">
-    <div class="section-title">Summary</div>
-    <div class="item">
-      <p class="summary-text">{esc(cv["summary"])}</p>
-    </div>
+    <h2 class="section-title">Summary</h2>
+    <p class="summary-text">{esc(cv["summary"])}</p>
   </section>
 
   <section class="section">
-    <div class="section-title">Experience</div>
+    <h2 class="section-title">Experience</h2>
     {"".join(experience_item(e) for e in cv["experience"])}
   </section>
 
   <section class="section">
-    <div class="section-title">Education</div>
+    <h2 class="section-title">Education</h2>
     {"".join(education_item(e) for e in cv["education"])}
   </section>
 
   <section class="section">
-    <div class="section-title">Training / Courses</div>
+    <h2 class="section-title">Training / Courses</h2>
     {"".join(course_item(c) for c in cv["courses"])}
   </section>
 
   <section class="section">
-    <div class="section-title">Skills</div>
+    <h2 class="section-title">Skills</h2>
     {"".join(skill_group(s) for s in cv["skills"])}
   </section>
 
   <section class="section">
-    <div class="section-title">Languages</div>
-    <div class="languages-grid">
-      {"".join(language_item(l) for l in cv["languages"])}
-    </div>
+    <h2 class="section-title">Languages</h2>
+    {"".join(language_item(lang_item) for lang_item in cv["languages"])}
   </section>
 
 </div>
@@ -423,8 +367,6 @@ def build_html(cv: dict, theme_name: str) -> str:
 </html>"""
 
 # ---- translation helpers ------------------------------------
-
-import re
 
 def get_keywords_to_preserve():
     """Return a list of English keywords that should be preserved during translation."""
