@@ -445,14 +445,7 @@ def translate_text_with_keywords(text: str, source_lang: str = "en", target_lang
 
 # ---- CLI commands -------------------------------------------
 
-@app.command()
-def generate(
-    company: Annotated[Optional[str], typer.Option("--company", "-c", help="Company ID (reads companies/{id}/cv-{lang}.json, outputs companies/{id}/JezielLopesCarvalho-{lang}.pdf)")] = None,
-    lang: Annotated[str, typer.Option("--lang", "-l", help="Language code (en, pt)")] = "en",
-    theme: Annotated[str, typer.Option("--theme", "-t", help="Theme: classic, modern, minimal")] = "classic",
-    pdf: Annotated[bool, typer.Option("--pdf", help="Export PDF after rendering HTML")] = False,
-):
-    """Render cv.json to index.html and optionally export a PDF."""
+def resolve_paths(company, lang):
     if company:
         company_dir = BASE_DIR / "companies" / company
         cv_path = company_dir / f"cv-{lang}.json"
@@ -461,8 +454,18 @@ def generate(
         cv_filename = "cv.json" if lang == "en" else f"cv-{lang}.json"
         cv_path = BASE_DIR / cv_filename
         pdf_out = BASE_DIR / f"resume-{lang}.pdf"
+    return cv_path, pdf_out, BASE_DIR / "index.html"
 
-    html_out = BASE_DIR / "index.html"
+
+@app.command()
+def generate(
+    company: Annotated[Optional[str], typer.Option("--company", "-c", help="Company ID (reads companies/{id}/cv-{lang}.json, outputs companies/{id}/JezielLopesCarvalho-{lang}.pdf)")] = None,
+    lang: Annotated[str, typer.Option("--lang", "-l", help="Language code (en, pt)")] = "en",
+    theme: Annotated[str, typer.Option("--theme", "-t", help="Theme: classic, modern, minimal")] = "classic",
+    pdf: Annotated[bool, typer.Option("--pdf", help="Export PDF after rendering HTML")] = False,
+):
+    """Render cv.json to index.html and optionally export a PDF."""
+    cv_path, pdf_out, html_out = resolve_paths(company, lang)
 
     if not cv_path.exists():
         typer.echo(f"✖ CV file not found: {cv_path.relative_to(BASE_DIR)}", err=True)
@@ -510,6 +513,92 @@ def generate(
             browser.close()
 
         typer.echo(f"✔ {pdf_out.relative_to(BASE_DIR)} written")
+
+
+def _print_report(report, jd_text=""):
+    typer.echo("\nATS format gates")
+    for g in report.gates:
+        mark = "✔" if g.passed else "✖"
+        typer.echo(f"  {mark} {g.key} {g.title}: {g.detail}")
+    typer.echo(f"\nScorecard ({report.overall}/100)")
+    for category, score in report.categories.items():
+        typer.echo(f"  {category}: {score}%")
+    for check in report.checks:
+        if check.key == "ats.gates":
+            continue
+        typer.echo(f"    - {check.title}: {check.score}% ({check.detail})")
+    if jd_text.strip():
+        keyword = next((c for c in report.checks if c.key == "tailoring.keywords"), None)
+        if keyword:
+            typer.echo(f"\nJD tailoring: {keyword.score}% coverage")
+        if report.missing_keywords:
+            typer.echo(f"  missing: {', '.join(report.missing_keywords[:20])}")
+    if report.judge:
+        typer.echo(f"\nLLM judge (non-deterministic)\n{report.judge}")
+    if report.gates_passed:
+        typer.echo("\n✔ All ATS gates passed")
+    else:
+        typer.echo("\n✖ ATS gates failed", err=True)
+
+
+@app.command("ats-check")
+def ats_check(
+    company: Annotated[Optional[str], typer.Option("--company", "-c", help="Company ID")] = None,
+    lang: Annotated[str, typer.Option("--lang", "-l", help="Language code")] = "en",
+    pdf: Annotated[Optional[Path], typer.Option("--pdf", help="Explicit PDF path")] = None,
+    cv_file: Annotated[Optional[Path], typer.Option("--cv", help="Explicit cv.json path")] = None,
+    jd: Annotated[Optional[str], typer.Option("--jd", help="JD file path or http(s) URL")] = None,
+    judge: Annotated[bool, typer.Option("--judge", help="Run the optional LLM judge")] = False,
+    judge_cmd: Annotated[str, typer.Option("--judge-cmd", help="Judge command")] = "claude -p",
+    strict: Annotated[bool, typer.Option("--strict", help="Also fail below score thresholds")] = False,
+    min_score: Annotated[int, typer.Option("--min-score", help="Overall score floor in strict mode")] = 90,
+    min_coverage: Annotated[float, typer.Option("--min-coverage", help="JD coverage floor in strict mode")] = 0.60,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit machine-readable JSON")] = False,
+):
+    """Check a generated CV PDF for ATS safety and score it."""
+    cv_path, pdf_path, _ = resolve_paths(company, lang)
+    if pdf:
+        pdf_path = pdf
+    if cv_file:
+        cv_path = cv_file
+    if not pdf_path.exists():
+        typer.echo(f"✖ PDF not found: {pdf_path}", err=True)
+        raise typer.Exit(1)
+
+    cv = json.loads(cv_path.read_text(encoding="utf-8")) if cv_path.exists() else None
+
+    jd_text = ""
+    if jd:
+        try:
+            jd_text = ats.fetch_jd(jd)
+        except Exception as exc:  # noqa: BLE001
+            typer.echo(f"⚠ could not load JD: {exc}", err=True)
+    elif company:
+        auto = BASE_DIR / "companies" / company / "description.md"
+        if auto.exists():
+            jd_text = auto.read_text(encoding="utf-8")
+
+    report = ats.run_checks(pdf_path, cv=cv, jd_text=jd_text)
+
+    if judge:
+        report.judge = ats.run_judge(judge_cmd, ats.extract_pdf_text(pdf_path), jd_text)
+
+    if as_json:
+        typer.echo(json.dumps(report.to_dict(), indent=2))
+    else:
+        _print_report(report, jd_text)
+
+    if not report.gates_passed:
+        raise typer.Exit(1)
+    if strict:
+        if report.overall < min_score:
+            typer.echo(f"✖ overall score {report.overall} < {min_score}", err=True)
+            raise typer.Exit(1)
+        if jd_text.strip():
+            keyword = next((c for c in report.checks if c.key == "tailoring.keywords"), None)
+            if keyword and keyword.score < min_coverage * 100:
+                typer.echo(f"✖ JD coverage {keyword.score}% < {min_coverage:.0%}", err=True)
+                raise typer.Exit(1)
 
 
 @app.command()
