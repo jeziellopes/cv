@@ -60,6 +60,7 @@ cv generate --theme modern --pdf        # different theme
 cv generate --company owlish --pdf      # tailored: companies/owlish/JezielLopesCarvalho-en.pdf
 cv new acme                             # scaffold companies/acme/cv-en.json from base cv.json
 cv translate --text "Your text here" --from en --to pt  # translate with keyword preservation
+cv ats-check --company owlish           # verify the PDF parses in ATS and score it
 ```
 
 | Option | Default | Description |
@@ -68,6 +69,21 @@ cv translate --text "Your text here" --from en --to pt  # translate with keyword
 | `--lang / -l` | `en` | Language code (`en`, `pt`) |
 | `--theme / -t` | `classic` | Theme: `classic`, `modern`, `minimal` |
 | `--pdf` | off | Export PDF after rendering HTML |
+
+## ATS checking
+
+Generated PDFs are verified against how applicant tracking systems parse them with `cv ats-check`. It enforces nine format gates (text layer, single column, reading order, semantic sections, date format, character set, contact info, content completeness, file size) and prints a 0-100 scorecard mirroring the categories used by third-party checkers.
+
+```bash
+cv ats-check --company owlish            # gates + scorecard for a company CV
+cv ats-check --company owlish --jd companies/owlish/description.md  # add JD keyword coverage
+cv ats-check --pdf resume-en.pdf --strict  # exit 1 on any gate failure or a score under 90
+cv ats-check --company owlish --judge    # append an optional LLM judge pass (never gates)
+```
+
+Any gate failure exits 1. With `--strict`, the command also exits 1 when the overall score is below `--min-score` (default 90) or JD coverage is below `--min-coverage` (default 0.60). `--json` emits a machine-readable report. When `--company` is set and no `--jd` is given, the JD is auto-discovered from `companies/{id}/description.md` if present.
+
+The CLI flags, exit codes, and `--json` output are the tool's API: a major version bump may change them, and gates exiting 1 on a failed check is the stable contract.
 
 ## Themes
 
