@@ -622,7 +622,7 @@ def new(
     company_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy(src, dest)
     typer.echo(f"✔ Scaffolded {dest.relative_to(BASE_DIR)}")
-    typer.echo(f"  Next: edit the file, then run:")
+    typer.echo("  Next: edit the file, then run:")
     typer.echo(f"    cv generate --company {company_id} --pdf")
 
 
