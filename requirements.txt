@@ -3,4 +3,5 @@
 # Then:     playwright install chromium
 
 playwright>=1.44.0
+pdfminer.six>=20240701
 typer>=0.12.0
