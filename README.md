@@ -98,7 +98,9 @@ cv search --import linkedin-export.json        # rank a LinkedIn extension expor
 cv search "react" --ingest 1                   # write the top match's JD to companies/<slug>/description.md
 ```
 
-The fit score is a ranking signal, not a match rate: roughly half from the posting's distinctive tech terms found in the CV, three tenths from the CV's skills found in the posting, two tenths from title overlap. Distinctive terms exclude generic prose, so coverage reflects real tech overlap. Around 45% is a strong match for a generalist CV; low-signal sources (mass-posted listings with near-identical descriptions) compress everything toward 15-25%. Rank against a tailored CV with `--cv companies/<slug>/cv-en.json` for a sharper signal. Sources are `remotive` (default), `remoteok`, and `linkedin` (guest endpoint, best-effort and often blocked). `--json` emits a machine-readable list. `--ingest N` writes `companies/<slug>/description.md` and prints the next pipeline commands.
+The fit score is a ranking signal, not a match rate: with a query it blends 55% query relevance with 45% CV fit (distinctive JD terms, CV skills found in the posting, title overlap). Generic prose in English and Portuguese is ignored and diacritics are folded, so `Sênior` and `experiência` don't dilute. Around 45-65% is a strong match for a generalist CV; low-signal sources compress everything toward 15-25%. Rank against a tailored CV with `--cv companies/<slug>/cv-en.json` for a sharper signal.
+
+Sources: `programathor` (default, Brazilian dev board; serves a ~15-job recent feed), `remotive`, `remoteok`, `linkedin` (guest endpoint, best-effort and often blocked), and `gupy` (best-effort, frequently unreachable). Client-rendered boards (vagas.com.br, GeekHunter, inhire) aren't scrapable and belong on the `--import` path. `--json` emits a machine-readable list. `--ingest N` writes `companies/<slug>/description.md` and prints the next pipeline commands.
 
 ## Themes
 
