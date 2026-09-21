@@ -45,7 +45,7 @@ cv/
 
 Your generated PDFs will be `resume-en.pdf` and `resume-pt.pdf` in the root directory.
 
-`./install.sh` installs the package (and re-registers new modules on re-run) and Playwright chromium. On a machine where the system disk is full, keep browsers on another volume: `export PLAYWRIGHT_BROWSERS_PATH=/path/to/ms-playwright` before `./install.sh` and before `cv generate --pdf`. `./install.sh --check` verifies the install without changing anything.
+`./install.sh` installs the package (and re-registers new modules on re-run) and Playwright chromium. The browser directory is resolved from `PLAYWRIGHT_BROWSERS_PATH`, else a previous install's `.cv-env`, else Playwright's default, and is persisted to `.cv-env` so `cv generate --pdf` needs no export. On a machine where the system disk is full, keep browsers on another volume by running `PLAYWRIGHT_BROWSERS_PATH=/path/to/ms-playwright ./install.sh` once. `./install.sh --check` verifies the install without changing anything.
 
 ### For existing candidates
 
