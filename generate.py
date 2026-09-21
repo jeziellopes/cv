@@ -622,7 +622,7 @@ def ats_check(
 @app.command()
 def search(
     query: Annotated[Optional[str], typer.Argument(help="Search query, e.g. 'react senior remote'. Ignored with --import")] = None,
-    source: Annotated[str, typer.Option("--source", "-s", help="Job source: remotive, remoteok, linkedin")] = "remotive",
+    source: Annotated[str, typer.Option("--source", "-s", help="Job source: programathor, remotive, remoteok, linkedin, gupy")] = "programathor",
     limit: Annotated[int, typer.Option("--limit", "-n", help="Max results to show")] = 10,
     import_file: Annotated[Optional[Path], typer.Option("--import", help="Rank jobs from a JSON file (e.g. a LinkedIn extension export)")] = None,
     cv_file: Annotated[Optional[Path], typer.Option("--cv", help="Rank against a tailored cv.json instead of the base cv.json")] = None,
@@ -650,7 +650,7 @@ def search(
 
     cv_path = cv_file if cv_file else BASE_DIR / "cv.json"
     cv = json.loads(cv_path.read_text(encoding="utf-8"))
-    ranked = searchmod.rank(jobs, cv)[:limit]
+    ranked = searchmod.rank(jobs, cv, query=query or "")[:limit]
     if not ranked:
         typer.echo("✖ no jobs found for the query", err=True)
         raise typer.Exit(1)
@@ -663,7 +663,7 @@ def search(
         ], indent=2))
         return
 
-    typer.echo(f"Best matches for '{query or import_file}' (fit = how well the CV covers the JD)")
+    typer.echo(f"Best matches for '{query or import_file}' (fit = query relevance + how well the CV covers the JD)")
     for i, r in enumerate(ranked, 1):
         mark = " *" if ingest == i else ""
         typer.echo(f"  {i:>2}. {r.fit:>3}%  {r.job.title} @ {r.job.company} ({r.job.location}){mark}")

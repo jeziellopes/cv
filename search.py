@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
@@ -19,7 +20,31 @@ from pathlib import Path
 
 from ats import JD_STOPWORDS, _looks_like_domain
 
-# Generic role boilerplate that carries no match signal.
+# Common function words dropped from a free-text query, EN and PT. Role and
+# domain words are kept: for a query, "full stack" is the signal, not noise.
+_QUERY_STOPWORDS = {
+    "a", "an", "the", "and", "or", "but", "for", "of", "to", "in", "on", "at",
+    "with", "by", "as", "de", "em", "para", "com", "da", "do", "das", "dos",
+    "que", "e", "ou", "um", "uma", "na", "no", "nas", "nos", "vagas", "vaga",
+}
+
+# Generic Brazilian-portuguese role prose that carries no match signal.
+_PT_BOILERPLATE = set(
+    """
+    vaga vagas empresa empresas estagio estagio pleno senior junior trainee
+    remoto hibrido presencial trabalho trabalhar trabalhos experiencia anos
+    desenvolvedor desenvolvedora
+    requisitos responsabilidades beneficios salario contratacao contratacao clt pj
+    time times produto produtos cliente clientes negocio negocios conhecimento
+    habilidades equipe profissional profissionais procuramos buscamos pessoa
+    pessoas projetos projeto atuar atuando desenvolver desenvolvimento desejavel
+    obrigatorio diferencial desafios qualidade codigo testes automatizados
+    producao escalavel aplicacoes aplicativos construir construcao integracao
+    entrega entregar sustentacao suporte apoiar colaborar colaboracao aprender
+    aprendizado crescimento autonomia impacto resultados resultados metodos
+    metodologias agil agil lean scrumban kanban
+    """.split()
+)
 
 # ---- model ------------------------------------------------
 
@@ -140,10 +165,67 @@ def _linkedin(query: str, cap: int) -> list[Job]:
     return jobs[:cap]
 
 
+def _programathor(query: str, cap: int) -> list[Job]:
+    """Programathor: server-rendered Brazilian dev job board. Card text carries
+    title, company, city, seniority and contract type; detail pages are
+    bot-blocked, so the card text is the description."""
+    html = _get_text("https://programathor.com.br/jobs")
+    jobs = []
+    for card in re.split(r'(?=<a[^>]+href="/jobs/\d+)', html):
+        href_m = re.search(r'href="(/jobs/\d+[^"]*)"', card)
+        if not href_m:
+            continue
+        def strip(s):
+            return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", s or "")).strip()
+        title_m = re.search(r'<h3 class="text-24 line-height-30">(.*?)</h3>', card, re.S)
+        spans = re.findall(r"<span>(.*?)</span>", card, re.S)
+        title = strip(title_m.group(1)) if title_m else ""
+        company = strip(spans[0]) if spans else ""
+        location = strip(spans[1]) if len(spans) > 1 else ""
+        meta = " ".join(strip(s) for s in spans[2:])
+        body = " ".join(x for x in (title, company, location, meta) if x)
+        if not title or (query and not _matches(query, body)):
+            continue
+        jobs.append(
+            Job(
+                title=title, company=company, location=location,
+                url="https://programathor.com.br" + href_m.group(1),
+                description=body, source="programathor",
+            )
+        )
+    return jobs[:cap]
+
+
+def _gupy(query: str, cap: int) -> list[Job]:
+    """Best-effort Gupy. The public endpoint is frequently blocked or changed;
+    when it is, this raises and the CLI reports the source as unreachable."""
+    url = (
+        "https://portal.api.gupy.io/api/job"
+        "?limit=" + str(cap) + "&jobName=" + urllib.parse.quote(query)
+    )
+    data = _get_json(url)
+    entries = data if isinstance(data, list) else data.get("data", [])
+    jobs = []
+    for entry in entries:
+        jobs.append(
+            Job(
+                title=entry.get("name") or entry.get("title") or "",
+                company=entry.get("company") or "",
+                location=entry.get("workplace") or "",
+                url=entry.get("careerPageUrl") or entry.get("url") or "",
+                description=entry.get("description") or "",
+                source="gupy",
+            )
+        )
+    return jobs[:cap]
+
+
 SOURCES = {
+    "programathor": _programathor,
     "remotive": _remotive,
     "remoteok": _remoteok,
     "linkedin": _linkedin,
+    "gupy": _gupy,
 }
 
 
@@ -179,6 +261,17 @@ def _tokens(text: str) -> set[str]:
     return {t.lower() for t in re.findall(r"[A-Za-z][A-Za-z0-9+#.-]*", text or "")}
 
 
+def _fold(text: str) -> str:
+    """Strip diacritics so 'Sênior' folds to 'senior' for generic-word checks."""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", text) if unicodedata.category(c) != "Mn"
+    )
+
+
+def _is_generic(token: str) -> bool:
+    return _fold(token) in JD_STOPWORDS or _fold(token) in _PT_BOILERPLATE
+
+
 def _jd_terms(text: str, skill_vocab: set[str]) -> list[str]:
     """Distinctive terms in a JD: tokens that are capitalized, carry tech
     punctuation (node.js, ci/cd, es6+), or name a CV skill. Generic prose is
@@ -186,15 +279,25 @@ def _jd_terms(text: str, skill_vocab: set[str]) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for m in re.finditer(r"[A-Za-z][A-Za-z0-9+#./-]*", text or ""):
-        raw = m.group(0)
-        low = raw.lower()
-        if len(low) < 3 or low in JD_STOPWORDS or low in seen:
+        raw = m.group(0).rstrip(".")
+        low = _fold(raw).lower()
+        if len(low) < 3 or _is_generic(low) or low in seen:
             continue
         if any(ch.isdigit() for ch in low) or _looks_like_domain(low):
             continue
         if raw[0].isupper() or "/" in raw or "." in raw or "+" in raw or "#" in raw or low in skill_vocab:
             seen.add(low)
             out.append(low)
+    return out
+
+
+def _overlap_tokens(text: str) -> set[str]:
+    """Token set for overlap, splitting hyphens so 'full-stack' matches
+    'full stack' and vice versa."""
+    out = _tokens(text)
+    for token in list(out):
+        if "-" in token:
+            out.update(token.split("-"))
     return out
 
 
@@ -208,15 +311,20 @@ def _cv_text(cv: dict) -> str:
     return " ".join(parts)
 
 
-def rank(jobs: list[Job], cv: dict) -> list[Ranked]:
-    """Score each job 0-100 by fit against the CV, best first."""
+def rank(jobs: list[Job], cv: dict, query: str = "") -> list[Ranked]:
+    """Score each job 0-100, best first.
+
+    A free-text query steers the rank (55% query relevance, 45% CV fit); with
+    no query (--import) the CV fit alone decides.
+    """
     cv_body = _cv_text(cv).lower()
     cv_tokens = _tokens(cv_body)
-    title_tokens = _tokens(cv.get("personal", {}).get("title", ""))
+    title_tokens = _overlap_tokens(cv.get("personal", {}).get("title", ""))
     skill_tags = [t for g in cv.get("skills", []) for t in g.get("tags", [])]
     skill_vocab = {t.lower() for t in skill_tags} | {
         token for t in skill_tags for token in _tokens(t)
     }
+    query_tokens = [t for t in _overlap_tokens(query) if len(t) >= 2 and t not in _QUERY_STOPWORDS]
 
     ranked = []
     for job in jobs:
@@ -232,13 +340,18 @@ def rank(jobs: list[Job], cv: dict) -> list[Ranked]:
             if skill_tags
             else 0.0
         )
-        job_tokens = _tokens(job.title)
+        job_tokens = _overlap_tokens(job.title)
         title_overlap = (
             len(job_tokens & title_tokens) / len(job_tokens)
             if job_tokens
             else 0.0
         )
-        fit = round(100 * (0.5 * jd_coverage + 0.3 * skill_coverage + 0.2 * title_overlap))
+        cv_fit = 0.5 * jd_coverage + 0.3 * skill_coverage + 0.2 * title_overlap
+        if query_tokens:
+            query_relevance = sum(1 for t in query_tokens if t in body) / len(query_tokens)
+            fit = round(100 * (0.55 * query_relevance + 0.45 * cv_fit))
+        else:
+            fit = round(100 * cv_fit)
         ranked.append(Ranked(job=job, fit=fit))
     ranked.sort(key=lambda r: (-r.fit, r.job.title.lower()))
     return ranked

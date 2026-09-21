@@ -49,6 +49,22 @@ FAKE_REMOTEOK = [
     },
 ]
 
+FAKE_PROGRAMATHOR = """
+<a href="/jobs/1-desenvolvedor-full-stack-senior">
+  <h3 class="text-24 line-height-30">Desenvolvedor Full-Stack Sênior</h3>
+  <span><i class='fa fa-briefcase'></i>Acme BR</span>
+  <span><i class='fas fa-map-marker-alt'></i>Remoto</span>
+  <span><i class='fa fa-building'></i>Média empresa</span>
+  <span><i class='far fa-chart-bar'></i>Sênior</span>
+  <span><i class='far fa-file-alt'></i>PJ</span>
+</a>
+<a href="/jobs/2-analista-dados">
+  <h3 class="text-24 line-height-30">Analista de Dados</h3>
+  <span><i class='fa fa-briefcase'></i>Otherco BR</span>
+  <span><i class='fas fa-map-marker-alt'></i>São Paulo/SP</span>
+</a>
+"""
+
 FAKE_LINKEDIN = """
 <li class="base-card base-search-card">
   <a class="base-card__full-link" href="https://www.linkedin.com/jobs/view/123"></a>
@@ -86,8 +102,12 @@ def mock_transport(monkeypatch):
         if "remoteok" in url:
             return FAKE_REMOTEOK
         return FAKE_REMOTIVE
+    def fake_get_text(url, timeout=20):
+        if "programathor" in url:
+            return FAKE_PROGRAMATHOR
+        return FAKE_LINKEDIN
     monkeypatch.setattr(searchmod, "_get_json", fake_get_json)
-    monkeypatch.setattr(searchmod, "_get_text", lambda url, timeout=20: FAKE_LINKEDIN)
+    monkeypatch.setattr(searchmod, "_get_text", fake_get_text)
     return searchmod
 
 
@@ -112,6 +132,55 @@ def test_linkedin_guest_parsing(mock_transport):
     assert jobs[0].company == "Acme Corp"
     assert jobs[0].location == "Remote"
     assert jobs[0].url.endswith("/jobs/view/123")
+
+
+def test_programathor_parsing(mock_transport):
+    jobs = searchmod.SOURCES["programathor"]("full stack", 10)
+    assert len(jobs) == 1
+    assert jobs[0].title == "Desenvolvedor Full-Stack Sênior"
+    assert jobs[0].company == "Acme BR"
+    assert jobs[0].location == "Remoto"
+    assert jobs[0].url == "https://programathor.com.br/jobs/1-desenvolvedor-full-stack-senior"
+    assert "PJ" in jobs[0].description
+
+
+def test_programathor_filters_by_query(mock_transport):
+    jobs = searchmod.SOURCES["programathor"]("dados", 10)
+    assert [j.title for j in jobs] == ["Analista de Dados"]
+
+
+def test_jd_terms_drop_portuguese_boilerplate(cv):
+    skill_vocab = {"react", "docker", "typescript"}
+    terms = searchmod._jd_terms(
+        "Desenvolvedor React Sênior com experiência em Docker e TypeScript.", skill_vocab
+    )
+    assert "react" in terms
+    assert "docker" in terms
+    assert "typescript" in terms
+    assert "desenvolvedor" not in terms
+    assert "experiência" not in terms
+
+
+def test_query_steers_ranking(cv):
+    jobs = [
+        searchmod.Job("Senior QA Engineer", "Lemon.io", "Remote", "u",
+                      "Quality assurance for the platform.", "remotive"),
+        searchmod.Job("Senior React Full-stack Developer", "Lemon.io", "Remote", "u",
+                      "React, TypeScript, Next.js, and Jest.", "remotive"),
+    ]
+    ranked = searchmod.rank(jobs, cv, query="full stack engineer")
+    assert ranked[0].job.title == "Senior React Full-stack Developer"
+
+
+def test_rank_without_query_uses_cv_fit(cv):
+    jobs = [
+        searchmod.Job("Senior React Engineer", "Acme", "Remote", "u",
+                      "React, TypeScript, Next.js, Jest.", "remotive"),
+        searchmod.Job("Python Data Scientist", "Other", "Remote", "u",
+                      "Python, Pandas, ML.", "remotive"),
+    ]
+    ranked = searchmod.rank(jobs, cv)
+    assert ranked[0].job.title == "Senior React Engineer"
 
 
 def test_rank_orders_best_fit_first(cv):
@@ -163,7 +232,7 @@ def test_from_file(tmp_path):
 def test_cli_search_ranks(tmp_path, cv, mock_transport, monkeypatch):
     (tmp_path / "cv.json").write_text(json.dumps(cv), encoding="utf-8")
     monkeypatch.setattr(generate, "BASE_DIR", tmp_path)
-    result = CliRunner().invoke(generate.app, ["search", "react"])
+    result = CliRunner().invoke(generate.app, ["search", "react", "--source", "remotive"])
     assert result.exit_code == 0
     assert "Senior React Engineer" in result.stdout
     assert "%" in result.stdout
@@ -172,7 +241,7 @@ def test_cli_search_ranks(tmp_path, cv, mock_transport, monkeypatch):
 def test_cli_search_json(tmp_path, cv, mock_transport, monkeypatch):
     (tmp_path / "cv.json").write_text(json.dumps(cv), encoding="utf-8")
     monkeypatch.setattr(generate, "BASE_DIR", tmp_path)
-    result = CliRunner().invoke(generate.app, ["search", "react", "--json"])
+    result = CliRunner().invoke(generate.app, ["search", "react", "--source", "remotive", "--json"])
     assert result.exit_code == 0
     rows = json.loads(result.stdout)
     assert rows[0]["fit"] >= rows[1]["fit"]
@@ -181,7 +250,7 @@ def test_cli_search_json(tmp_path, cv, mock_transport, monkeypatch):
 def test_cli_search_ingest(tmp_path, cv, mock_transport, monkeypatch):
     (tmp_path / "cv.json").write_text(json.dumps(cv), encoding="utf-8")
     monkeypatch.setattr(generate, "BASE_DIR", tmp_path)
-    result = CliRunner().invoke(generate.app, ["search", "react", "--ingest", "1"])
+    result = CliRunner().invoke(generate.app, ["search", "react", "--source", "remotive", "--ingest", "1"])
     assert result.exit_code == 0
     jd = tmp_path / "companies" / "acme" / "description.md"
     assert jd.exists()
@@ -215,9 +284,9 @@ def test_cli_search_uses_tailored_cv(tmp_path, mock_transport, monkeypatch):
     (tmp_path / "cv.json").write_text(json.dumps(base), encoding="utf-8")
     (tmp_path / "tailored.json").write_text(json.dumps(tailored), encoding="utf-8")
     monkeypatch.setattr(generate, "BASE_DIR", tmp_path)
-    base_result = CliRunner().invoke(generate.app, ["search", "react", "--json"])
+    base_result = CliRunner().invoke(generate.app, ["search", "react", "--source", "remotive", "--json"])
     tailored_result = CliRunner().invoke(
-        generate.app, ["search", "react", "--cv", str(tmp_path / "tailored.json"), "--json"]
+        generate.app, ["search", "react", "--source", "remotive", "--cv", str(tmp_path / "tailored.json"), "--json"]
     )
     assert base_result.exit_code == 0
     assert tailored_result.exit_code == 0
