@@ -204,3 +204,23 @@ def test_cli_search_import(tmp_path, cv, monkeypatch):
 def test_cli_unknown_source(cv, monkeypatch):
     result = CliRunner().invoke(generate.app, ["search", "react", "--source", "nope"])
     assert result.exit_code == 2
+
+
+def test_cli_search_uses_tailored_cv(tmp_path, mock_transport, monkeypatch):
+    base = {"personal": {"title": "General Engineer"}, "summary": "x",
+            "skills": [{"group": "g", "tags": ["React"]}], "experience": [], "education": []}
+    tailored = {"personal": {"title": "Senior React Frontend Developer"}, "summary": "x",
+                "skills": [{"group": "g", "tags": ["React", "TypeScript", "Jest", "PostgreSQL"]}],
+                "experience": [], "education": []}
+    (tmp_path / "cv.json").write_text(json.dumps(base), encoding="utf-8")
+    (tmp_path / "tailored.json").write_text(json.dumps(tailored), encoding="utf-8")
+    monkeypatch.setattr(generate, "BASE_DIR", tmp_path)
+    base_result = CliRunner().invoke(generate.app, ["search", "react", "--json"])
+    tailored_result = CliRunner().invoke(
+        generate.app, ["search", "react", "--cv", str(tmp_path / "tailored.json"), "--json"]
+    )
+    assert base_result.exit_code == 0
+    assert tailored_result.exit_code == 0
+    base_fit = json.loads(base_result.stdout)[0]["fit"]
+    tailored_fit = json.loads(tailored_result.stdout)[0]["fit"]
+    assert tailored_fit > base_fit

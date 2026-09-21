@@ -17,7 +17,9 @@ import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ats import jd_keywords
+from ats import JD_STOPWORDS, _looks_like_domain
+
+# Generic role boilerplate that carries no match signal.
 
 # ---- model ------------------------------------------------
 
@@ -177,6 +179,25 @@ def _tokens(text: str) -> set[str]:
     return {t.lower() for t in re.findall(r"[A-Za-z][A-Za-z0-9+#.-]*", text or "")}
 
 
+def _jd_terms(text: str, skill_vocab: set[str]) -> list[str]:
+    """Distinctive terms in a JD: tokens that are capitalized, carry tech
+    punctuation (node.js, ci/cd, es6+), or name a CV skill. Generic prose is
+    ignored, so coverage reflects real tech overlap, not description length."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for m in re.finditer(r"[A-Za-z][A-Za-z0-9+#./-]*", text or ""):
+        raw = m.group(0)
+        low = raw.lower()
+        if len(low) < 3 or low in JD_STOPWORDS or low in seen:
+            continue
+        if any(ch.isdigit() for ch in low) or _looks_like_domain(low):
+            continue
+        if raw[0].isupper() or "/" in raw or "." in raw or "+" in raw or "#" in raw or low in skill_vocab:
+            seen.add(low)
+            out.append(low)
+    return out
+
+
 def _cv_text(cv: dict) -> str:
     parts = [cv.get("summary", "")]
     for section in ("experience", "education"):
@@ -193,10 +214,13 @@ def rank(jobs: list[Job], cv: dict) -> list[Ranked]:
     cv_tokens = _tokens(cv_body)
     title_tokens = _tokens(cv.get("personal", {}).get("title", ""))
     skill_tags = [t for g in cv.get("skills", []) for t in g.get("tags", [])]
+    skill_vocab = {t.lower() for t in skill_tags} | {
+        token for t in skill_tags for token in _tokens(t)
+    }
 
     ranked = []
     for job in jobs:
-        keywords = jd_keywords(job.description)
+        keywords = _jd_terms(job.description, skill_vocab)
         jd_coverage = (
             sum(1 for k in keywords if k in cv_tokens) / len(keywords)
             if keywords

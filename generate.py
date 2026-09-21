@@ -625,6 +625,7 @@ def search(
     source: Annotated[str, typer.Option("--source", "-s", help="Job source: remotive, remoteok, linkedin")] = "remotive",
     limit: Annotated[int, typer.Option("--limit", "-n", help="Max results to show")] = 10,
     import_file: Annotated[Optional[Path], typer.Option("--import", help="Rank jobs from a JSON file (e.g. a LinkedIn extension export)")] = None,
+    cv_file: Annotated[Optional[Path], typer.Option("--cv", help="Rank against a tailored cv.json instead of the base cv.json")] = None,
     ingest: Annotated[Optional[int], typer.Option("--ingest", help="Write ranked result #N as a JD to companies/<slug>/description.md")] = None,
     as_json: Annotated[bool, typer.Option("--json", help="Emit machine-readable JSON")] = False,
 ):
@@ -647,7 +648,8 @@ def search(
             typer.echo(f"✖ could not reach {source}: {exc}", err=True)
             raise typer.Exit(1)
 
-    cv = json.loads((BASE_DIR / "cv.json").read_text(encoding="utf-8"))
+    cv_path = cv_file if cv_file else BASE_DIR / "cv.json"
+    cv = json.loads(cv_path.read_text(encoding="utf-8"))
     ranked = searchmod.rank(jobs, cv)[:limit]
     if not ranked:
         typer.echo("✖ no jobs found for the query", err=True)
