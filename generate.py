@@ -14,6 +14,7 @@
 # ============================================================
 
 import json
+import os
 import re
 import sys
 import html as _html
@@ -458,6 +459,19 @@ def resolve_paths(company, lang):
     return cv_path, pdf_out, BASE_DIR / "index.html"
 
 
+def resolve_browsers_path():
+    """Resolve the Playwright browser directory: env var, then .cv-env, else default."""
+    env = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    if env:
+        return env
+    cv_env = BASE_DIR / ".cv-env"
+    if cv_env.exists():
+        for line in cv_env.read_text(encoding="utf-8").splitlines():
+            if line.startswith("PLAYWRIGHT_BROWSERS_PATH="):
+                return line.split("=", 1)[1].strip().strip('"')
+    return ""
+
+
 @app.command()
 def generate(
     company: Annotated[Optional[str], typer.Option("--company", "-c", help="Company ID (reads companies/{id}/cv-{lang}.json, outputs companies/{id}/JezielLopesCarvalho-{lang}.pdf)")] = None,
@@ -484,6 +498,9 @@ def generate(
     typer.echo(f"✔ index.html written  (lang: {lang}, theme: {theme}{company_info})")
 
     if pdf:
+        browsers = resolve_browsers_path()
+        if browsers:
+            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browsers
         try:
             from playwright.sync_api import sync_playwright
         except ImportError:

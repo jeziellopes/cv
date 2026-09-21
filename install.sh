@@ -7,15 +7,21 @@ cd "$(dirname "$0")"
 
 PYTHON="${PYTHON:-python3}"
 BROWSERS="${PLAYWRIGHT_BROWSERS_PATH:-}"
-DEFAULT_BROWSERS="$HOME/.cache/ms-playwright"
+
+# Resolve the browser dir: env var, then .cv-env (persisted by a prior run),
+# then Playwright's default.
+if [ -z "$BROWSERS" ] && [ -f .cv-env ]; then
+  BROWSERS="$(sed -n 's/^PLAYWRIGHT_BROWSERS_PATH=//p' .cv-env | head -1)"
+fi
+: "${BROWSERS:=$HOME/.cache/ms-playwright}"
+export PLAYWRIGHT_BROWSERS_PATH="$BROWSERS"
 
 modules_ok() {
   "$PYTHON" -c "import generate, ats, search" 2>/dev/null
 }
 
 chromium_ok() {
-  local dir="${BROWSERS:-$DEFAULT_BROWSERS}"
-  [ -d "$dir" ] && [ -n "$(ls -d "$dir"/chromium-* 2>/dev/null | head -1)" ]
+  [ -d "$BROWSERS" ] && [ -n "$(ls -d "$BROWSERS"/chromium-* 2>/dev/null | head -1)" ]
 }
 
 check() {
@@ -33,9 +39,9 @@ check() {
     ok=0
   fi
   if chromium_ok; then
-    echo "ok  chromium present (${BROWSERS:-$DEFAULT_BROWSERS})"
+    echo "ok  chromium present ($BROWSERS)"
   else
-    echo "fail chromium missing at (${BROWSERS:-$DEFAULT_BROWSERS}): run ./install.sh" >&2
+    echo "fail chromium missing at ($BROWSERS): run ./install.sh" >&2
     ok=0
   fi
   [ "$ok" -eq 1 ] || return 1
@@ -56,8 +62,10 @@ case "${1:-}" in
       echo "package already installed; reinstalling to register new modules (ats, search)"
     fi
     "$PYTHON" -m pip install -e . || "$PYTHON" -m pip install --user -e .
-    echo "== playwright chromium =="
+    echo "== playwright chromium (browsers: $BROWSERS) =="
     "$PYTHON" -m playwright install chromium
+    # Persist the resolved browser dir so 'cv generate --pdf' needs no export.
+    printf 'PLAYWRIGHT_BROWSERS_PATH=%s\n' "$BROWSERS" > .cv-env
     echo "== smoke test =="
     if modules_ok && command -v cv >/dev/null 2>&1; then
       echo "ok  cv is importable and on PATH"
@@ -65,9 +73,7 @@ case "${1:-}" in
       echo "fail smoke test: cv not usable" >&2
       exit 1
     fi
-    if [ -n "$BROWSERS" ]; then
-      echo "note: PLAYWRIGHT_BROWSERS_PATH=$BROWSERS must stay exported when running 'cv generate --pdf'"
-    fi
+    echo "browsers path persisted to .cv-env; cv generate --pdf uses it automatically"
     echo "done. Next: cv generate --pdf"
     ;;
   *)

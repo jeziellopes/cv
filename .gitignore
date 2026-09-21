@@ -17,6 +17,9 @@ messages/
 resume
 owlish.md
 
+# Local machine env persisted by install.sh (browser dir)
+.cv-env
+
 # Python
 __pycache__/
 *.py[cod]

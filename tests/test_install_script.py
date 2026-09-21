@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pytest
 
+import generate
+
 REPO = Path(__file__).resolve().parent.parent
 INSTALL = REPO / "install.sh"
 
@@ -25,3 +27,24 @@ def test_install_script_rejects_unknown_option():
     result = subprocess.run(["bash", str(INSTALL), "--nope"], capture_output=True, text=True)
     assert result.returncode == 2
     assert "unknown option" in result.stderr
+
+
+def test_resolve_browsers_path_uses_env_first(tmp_path, monkeypatch):
+    monkeypatch.setattr(generate, "BASE_DIR", tmp_path)
+    monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", "/env/browsers")
+    assert generate.resolve_browsers_path() == "/env/browsers"
+
+
+def test_resolve_browsers_path_falls_back_to_cv_env(tmp_path, monkeypatch):
+    (tmp_path / ".cv-env").write_text(
+        'PLAYWRIGHT_BROWSERS_PATH=/stored/browsers\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(generate, "BASE_DIR", tmp_path)
+    monkeypatch.delenv("PLAYWRIGHT_BROWSERS_PATH", raising=False)
+    assert generate.resolve_browsers_path() == "/stored/browsers"
+
+
+def test_resolve_browsers_path_defaults_empty(tmp_path, monkeypatch):
+    monkeypatch.setattr(generate, "BASE_DIR", tmp_path)
+    monkeypatch.delenv("PLAYWRIGHT_BROWSERS_PATH", raising=False)
+    assert generate.resolve_browsers_path() == ""
