@@ -38,13 +38,14 @@ cv/
 
 3. **Generate PDFs:**
    ```bash
-   pip install -e .
-   playwright install chromium
+   ./install.sh
    cv generate --pdf --lang en      # Generate English resume
    cv generate --pdf --lang pt      # Generate Portuguese resume
    ```
 
 Your generated PDFs will be `resume-en.pdf` and `resume-pt.pdf` in the root directory.
+
+`./install.sh` installs the package (and re-registers new modules on re-run) and Playwright chromium. On a machine where the system disk is full, keep browsers on another volume: `export PLAYWRIGHT_BROWSERS_PATH=/path/to/ms-playwright` before `./install.sh` and before `cv generate --pdf`. `./install.sh --check` verifies the install without changing anything.
 
 ### For existing candidates
 
