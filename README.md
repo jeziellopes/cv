@@ -61,6 +61,7 @@ cv generate --company owlish --pdf      # tailored: companies/owlish/JezielLopes
 cv new acme                             # scaffold companies/acme/cv-en.json from base cv.json
 cv translate --text "Your text here" --from en --to pt  # translate with keyword preservation
 cv ats-check --company owlish           # verify the PDF parses in ATS and score it
+cv search "react senior remote"         # search job sources and rank the best matches
 ```
 
 | Option | Default | Description |
@@ -84,6 +85,19 @@ cv ats-check --company owlish --judge    # append an optional LLM judge pass (ne
 Any gate failure exits 1. With `--strict`, the command also exits 1 when the overall score is below `--min-score` (default 90) or JD coverage is below `--min-coverage` (default 0.60). `--json` emits a machine-readable report. When `--company` is set and no `--jd` is given, the JD is auto-discovered from `companies/{id}/description.md` if present.
 
 The CLI flags, exit codes, and `--json` output are the tool's API: a major version bump may change them, and gates exiting 1 on a failed check is the stable contract.
+
+## Job search
+
+`cv search` queries remote job boards with a free-text query and ranks the results by how well the CV covers each posting.
+
+```bash
+cv search "react senior remote"                # remotive, ranked by fit
+cv search "typescript frontend" --source remoteok
+cv search --import linkedin-export.json        # rank a LinkedIn extension export
+cv search "react" --ingest 1                   # write the top match's JD to companies/<slug>/description.md
+```
+
+The fit score (0-100) is deterministic: half from JD keywords found in the CV, three tenths from the CV's skills found in the posting, two tenths from title overlap. Sources are `remotive` (default), `remoteok`, and `linkedin` (guest endpoint, best-effort and often blocked). `--json` emits a machine-readable list. `--ingest N` writes `companies/<slug>/description.md` and prints the next pipeline commands.
 
 ## Themes
 
