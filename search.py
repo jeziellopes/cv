@@ -63,6 +63,7 @@ class Job:
 class Ranked:
     job: Job
     fit: int
+    matched: list[str] = field(default_factory=list)
 
 
 # ---- transport --------------------------------------------
@@ -78,6 +79,22 @@ def _get_json(url: str, timeout: int = 20) -> object:
 def _get_text(url: str, timeout: int = 20) -> str:
     req = urllib.request.Request(
         url, headers={"User-Agent": "cv/0.1 (job search)"}
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+        return resp.read().decode("utf-8", errors="replace")
+
+
+def _get_html(url: str, timeout: int = 20) -> str:
+    """Fetch HTML with a browser-like UA; some boards block plain clients."""
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/124 Safari/537.36"
+            ),
+            "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+        },
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
         return resp.read().decode("utf-8", errors="replace")
@@ -165,11 +182,35 @@ def _linkedin(query: str, cap: int) -> list[Job]:
     return jobs[:cap]
 
 
+_DETAIL_START_RE = re.compile(
+    r"(requisitos|descri.ão da vaga|sobre a vaga|responsabilidades)", re.I
+)
+_DETAIL_CUT_RE = re.compile(
+    r"(candidatar|inscreva-se|enviar curr|como se candidatar|forma de pagamento)", re.I
+)
+
+
+def _programathor_detail(url: str) -> str:
+    """Best-effort fetch of a Programathor job page; returns the requirements
+    section or an empty string when the page is blocked."""
+    try:
+        html = _get_html(url)
+    except Exception:  # noqa: BLE001
+        return ""
+    text = re.sub(r"<[^>]+>", " ", html)
+    text = re.sub(r"\s+", " ", text)
+    start_m = _DETAIL_START_RE.search(text)
+    body = text[start_m.end():] if start_m else text
+    cut_m = _DETAIL_CUT_RE.search(body)
+    if cut_m:
+        body = body[:cut_m.start()]
+    return body.strip()[:2000]
+
+
 def _programathor(query: str, cap: int) -> list[Job]:
-    """Programathor: server-rendered Brazilian dev job board. Card text carries
-    title, company, city, seniority and contract type; detail pages are
-    bot-blocked, so the card text is the description."""
-    html = _get_text("https://programathor.com.br/jobs")
+    """Programathor: server-rendered Brazilian dev job board. The listing card
+    is used to filter cheaply; the detail page supplies the real requirements."""
+    html = _get_html("https://programathor.com.br/jobs")
     jobs = []
     for card in re.split(r'(?=<a[^>]+href="/jobs/\d+)', html):
         href_m = re.search(r'href="(/jobs/\d+[^"]*)"', card)
@@ -182,18 +223,20 @@ def _programathor(query: str, cap: int) -> list[Job]:
         title = strip(title_m.group(1)) if title_m else ""
         company = strip(spans[0]) if spans else ""
         location = strip(spans[1]) if len(spans) > 1 else ""
-        meta = " ".join(strip(s) for s in spans[2:])
-        body = " ".join(x for x in (title, company, location, meta) if x)
-        if not title or (query and not _matches(query, body)):
+        url = "https://programathor.com.br" + href_m.group(1)
+        card_text = " ".join(x for x in (title, company, location) if x)
+        if not title or (query and not _matches(query, card_text)):
             continue
+        description = _programathor_detail(url) or card_text
         jobs.append(
             Job(
-                title=title, company=company, location=location,
-                url="https://programathor.com.br" + href_m.group(1),
-                description=body, source="programathor",
+                title=title, company=company, location=location, url=url,
+                description=description, source="programathor",
             )
         )
-    return jobs[:cap]
+        if len(jobs) >= cap:
+            break
+    return jobs
 
 
 def _gupy(query: str, cap: int) -> list[Job]:
@@ -349,10 +392,13 @@ def rank(jobs: list[Job], cv: dict, query: str = "") -> list[Ranked]:
         cv_fit = 0.5 * jd_coverage + 0.3 * skill_coverage + 0.2 * title_overlap
         if query_tokens:
             query_relevance = sum(1 for t in query_tokens if t in body) / len(query_tokens)
-            fit = round(100 * (0.55 * query_relevance + 0.45 * cv_fit))
+            # CV fit is the base; the query boosts within-stack matches but can
+            # never lift an off-stack job (e.g. C#/Angular for a JS/TS CV).
+            fit = round(100 * cv_fit * (1.0 + 0.5 * query_relevance))
         else:
             fit = round(100 * cv_fit)
-        ranked.append(Ranked(job=job, fit=fit))
+        matched = [t for t in skill_tags if t.lower() in body][:6]
+        ranked.append(Ranked(job=job, fit=fit, matched=matched))
     ranked.sort(key=lambda r: (-r.fit, r.job.title.lower()))
     return ranked
 

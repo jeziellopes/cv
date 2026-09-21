@@ -65,6 +65,13 @@ FAKE_PROGRAMATHOR = """
 </a>
 """
 
+FAKE_PROGRAMATHOR_DETAIL = """
+<html><body>
+<div>Requisitos Node.js (preferencialmente NestJS), TypeScript, React, PostgreSQL</div>
+<div>Como se candidatar: envie seu currículo</div>
+</body></html>
+"""
+
 FAKE_LINKEDIN = """
 <li class="base-card base-search-card">
   <a class="base-card__full-link" href="https://www.linkedin.com/jobs/view/123"></a>
@@ -106,8 +113,13 @@ def mock_transport(monkeypatch):
         if "programathor" in url:
             return FAKE_PROGRAMATHOR
         return FAKE_LINKEDIN
+    def fake_get_html(url, timeout=20):
+        if "/jobs/" in url and not url.endswith("/jobs"):
+            return FAKE_PROGRAMATHOR_DETAIL
+        return FAKE_PROGRAMATHOR
     monkeypatch.setattr(searchmod, "_get_json", fake_get_json)
     monkeypatch.setattr(searchmod, "_get_text", fake_get_text)
+    monkeypatch.setattr(searchmod, "_get_html", fake_get_html)
     return searchmod
 
 
@@ -141,7 +153,8 @@ def test_programathor_parsing(mock_transport):
     assert jobs[0].company == "Acme BR"
     assert jobs[0].location == "Remoto"
     assert jobs[0].url == "https://programathor.com.br/jobs/1-desenvolvedor-full-stack-senior"
-    assert "PJ" in jobs[0].description
+    assert "Node.js" in jobs[0].description
+    assert "candidatar" not in jobs[0].description
 
 
 def test_programathor_filters_by_query(mock_transport):

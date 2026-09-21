@@ -658,7 +658,8 @@ def search(
     if as_json:
         typer.echo(json.dumps([
             {"rank": i, "fit": r.fit, "title": r.job.title, "company": r.job.company,
-             "location": r.job.location, "url": r.job.url, "source": r.job.source}
+             "location": r.job.location, "url": r.job.url, "source": r.job.source,
+             "matched": r.matched}
             for i, r in enumerate(ranked, 1)
         ], indent=2))
         return
@@ -668,6 +669,8 @@ def search(
         mark = " *" if ingest == i else ""
         typer.echo(f"  {i:>2}. {r.fit:>3}%  {r.job.title} @ {r.job.company} ({r.job.location}){mark}")
         typer.echo(f"        {r.job.url}")
+        if r.matched:
+            typer.echo(f"        matches: {', '.join(r.matched)}")
 
     if ingest:
         if not 1 <= ingest <= len(ranked):
