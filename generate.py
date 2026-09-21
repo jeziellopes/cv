@@ -25,6 +25,7 @@ import typer
 from typing_extensions import Annotated
 
 import ats
+import search as searchmod
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -599,6 +600,64 @@ def ats_check(
             if keyword and keyword.score < min_coverage * 100:
                 typer.echo(f"✖ JD coverage {keyword.score}% < {min_coverage:.0%}", err=True)
                 raise typer.Exit(1)
+
+
+@app.command()
+def search(
+    query: Annotated[Optional[str], typer.Argument(help="Search query, e.g. 'react senior remote'. Ignored with --import")] = None,
+    source: Annotated[str, typer.Option("--source", "-s", help="Job source: remotive, remoteok, linkedin")] = "remotive",
+    limit: Annotated[int, typer.Option("--limit", "-n", help="Max results to show")] = 10,
+    import_file: Annotated[Optional[Path], typer.Option("--import", help="Rank jobs from a JSON file (e.g. a LinkedIn extension export)")] = None,
+    ingest: Annotated[Optional[int], typer.Option("--ingest", help="Write ranked result #N as a JD to companies/<slug>/description.md")] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Emit machine-readable JSON")] = False,
+):
+    """Search job sources and rank the best matches for this CV."""
+    if import_file:
+        if not import_file.exists():
+            typer.echo(f"✖ import file not found: {import_file}", err=True)
+            raise typer.Exit(1)
+        jobs = searchmod.from_file(import_file)
+    else:
+        if not query:
+            typer.echo("✖ a query is required unless --import is used", err=True)
+            raise typer.Exit(2)
+        try:
+            jobs = searchmod.SOURCES[source](query, limit * 5)
+        except KeyError:
+            typer.echo(f"✖ unknown source '{source}'. Available: {searchmod.known_sources()}", err=True)
+            raise typer.Exit(2)
+        except Exception as exc:  # noqa: BLE001
+            typer.echo(f"✖ could not reach {source}: {exc}", err=True)
+            raise typer.Exit(1)
+
+    cv = json.loads((BASE_DIR / "cv.json").read_text(encoding="utf-8"))
+    ranked = searchmod.rank(jobs, cv)[:limit]
+    if not ranked:
+        typer.echo("✖ no jobs found for the query", err=True)
+        raise typer.Exit(1)
+
+    if as_json:
+        typer.echo(json.dumps([
+            {"rank": i, "fit": r.fit, "title": r.job.title, "company": r.job.company,
+             "location": r.job.location, "url": r.job.url, "source": r.job.source}
+            for i, r in enumerate(ranked, 1)
+        ], indent=2))
+        return
+
+    typer.echo(f"Best matches for '{query or import_file}' (fit = how well the CV covers the JD)")
+    for i, r in enumerate(ranked, 1):
+        mark = " *" if ingest == i else ""
+        typer.echo(f"  {i:>2}. {r.fit:>3}%  {r.job.title} @ {r.job.company} ({r.job.location}){mark}")
+        typer.echo(f"        {r.job.url}")
+
+    if ingest:
+        if not 1 <= ingest <= len(ranked):
+            typer.echo(f"✖ --ingest {ingest} is out of range (1-{len(ranked)})", err=True)
+            raise typer.Exit(1)
+        target = ranked[ingest - 1].job
+        path = searchmod.ingest(target, BASE_DIR)
+        typer.echo(f"✔ JD written to {path.relative_to(BASE_DIR)}")
+        typer.echo(f"  Next: cv generate --company {path.parent.name} --pdf && cv ats-check --company {path.parent.name}")
 
 
 @app.command()

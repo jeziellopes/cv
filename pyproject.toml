@@ -18,4 +18,4 @@ dependencies = [
 cv = "generate:app"
 
 [tool.setuptools]
-py-modules = ["generate", "ats"]
+py-modules = ["generate", "ats", "search"]
