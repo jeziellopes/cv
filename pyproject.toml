@@ -11,11 +11,12 @@ license = {text = "MIT"}
 dependencies = [
     "playwright>=1.44.0",
     "pdfminer.six>=20240701",
+    "pyfiglet>=1.0.4",
     "typer>=0.12.0",
 ]
 
 [project.scripts]
-cv = "generate:app"
+cv = "generate:main"
 
 [tool.setuptools]
 py-modules = ["generate", "ats", "search"]

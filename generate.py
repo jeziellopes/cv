@@ -29,8 +29,61 @@ import ats
 import search as searchmod
 
 BASE_DIR = Path(__file__).resolve().parent
+BANNER_FONT = "slant"
+BANNER_TEXT = "cv"
+BANNER_HEADLINE = "A free, open-source resume generator"
 
-app = typer.Typer(help="cv: edit cv.json, run one command, get a PDF.")
+
+def _version() -> str:
+    try:
+        text = (BASE_DIR / "pyproject.toml").read_text()
+    except OSError:
+        return "0.0.0"
+    match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.M)
+    return match.group(1) if match else "0.0.0"
+
+
+def _show_banner(compact: bool = False) -> None:
+    """Print the ASCII banner unless compact mode is on or pyfiglet is missing."""
+    if compact:
+        return
+    try:
+        import pyfiglet
+    except ImportError:
+        return
+    try:
+        banner = pyfiglet.figlet_format(BANNER_TEXT, font=BANNER_FONT)
+    except Exception:
+        return
+    lines = [line for line in banner.splitlines() if line.strip()]
+    width = max(len(line) for line in lines)
+    mid = len(lines) // 2
+    version = f"v{_version()}"
+    for i, line in enumerate(lines):
+        right = version if i == mid - 1 else BANNER_HEADLINE if i == mid else ""
+        print(f"  {line.ljust(width)}   {right}".rstrip() if right else f"  {line}")
+    print()
+
+
+app = typer.Typer(
+    help="cv: edit cv.json, run one command, get a PDF.",
+    invoke_without_command=True,
+)
+
+
+@app.callback(invoke_without_command=True)
+def root(
+    ctx: typer.Context,
+    compact: Annotated[
+        bool,
+        typer.Option("--compact", help="Hide the banner and print less."),
+    ] = False,
+) -> None:
+    if ctx.invoked_subcommand is None:
+        if not compact:
+            _show_banner()
+        typer.echo(ctx.get_help())
+        raise typer.Exit()
 
 # ---- helpers ------------------------------------------------
 
@@ -722,6 +775,12 @@ def translate(
     typer.echo(f"\n{result}\n")
 
 
-if __name__ == "__main__":
+def main() -> None:
+    if "--help" in sys.argv or "-h" in sys.argv:
+        _show_banner(compact="--compact" in sys.argv)
     app()
+
+
+if __name__ == "__main__":
+    main()
 
