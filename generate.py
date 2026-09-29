@@ -203,6 +203,7 @@ body {{
 .contact-separator {{ margin: 0 6px; color: var(--color-muted); }}
 
 .section {{ margin-bottom: 12px; }}
+.section.keep-together {{ break-inside: avoid; }}
 
 .section-title {{
   font-family: var(--font-heading);
@@ -213,16 +214,16 @@ body {{
 }}
 
 .item {{ padding: 6px 12px; break-inside: avoid; }}
-.item-org {{ font-family: var(--font-body); font-weight: 700; font-size: 18px; line-height: 22px; color: var(--color-muted); }}
-.item-role {{ font-family: var(--font-body); font-weight: 400; font-size: 15px; line-height: 18px; color: var(--color-text); }}
-.item-meta {{ font-family: var(--font-body); font-size: 15px; line-height: 18px; color: var(--color-text); }}
+.item-org {{ font-family: var(--font-body); font-weight: 700; font-size: 18px; line-height: 22px; color: var(--color-muted); break-after: avoid; }}
+.item-role {{ font-family: var(--font-body); font-weight: 400; font-size: 15px; line-height: 18px; color: var(--color-text); break-after: avoid; }}
+.item-meta {{ font-family: var(--font-body); font-size: 15px; line-height: 18px; color: var(--color-text); break-after: avoid; }}
 
 .bullet-list {{ list-style: disc outside; margin: 4px 0 0 18px; }}
-.bullet-list li {{ font-family: var(--font-body); font-size: 13px; line-height: 18px; }}
+.bullet-list li {{ font-family: var(--font-body); font-size: 13px; line-height: 18px; break-inside: avoid; }}
 
 .summary-text {{ font-family: var(--font-body); font-size: 13px; line-height: 18px; white-space: pre-wrap; }}
 
-.skill-group {{ font-family: var(--font-body); font-size: 13px; line-height: 18px; padding: 6px 12px; }}
+.skill-group {{ font-family: var(--font-body); font-size: 13px; line-height: 18px; padding: 6px 12px; break-inside: avoid; }}
 .skill-label {{ font-weight: 700; color: var(--color-muted); }}
 
 .language-item {{ font-family: var(--font-body); font-size: 15px; line-height: 18px; padding: 6px 12px; }}
@@ -396,22 +397,22 @@ def build_html(cv: dict, theme_name: str) -> str:
     {"".join(experience_item(e) for e in cv["experience"])}
   </section>
 
-  <section class="section">
+  <section class="section keep-together">
     <h2 class="section-title">Education</h2>
     {"".join(education_item(e) for e in cv["education"])}
   </section>
 
-  <section class="section">
+  <section class="section keep-together">
     <h2 class="section-title">Training / Courses</h2>
     {"".join(course_item(c) for c in cv["courses"])}
   </section>
 
-  <section class="section">
+  <section class="section keep-together">
     <h2 class="section-title">Skills</h2>
     {"".join(skill_group(s) for s in cv["skills"])}
   </section>
 
-  <section class="section">
+  <section class="section keep-together">
     <h2 class="section-title">Languages</h2>
     {"".join(language_item(lang_item) for lang_item in cv["languages"])}
   </section>
