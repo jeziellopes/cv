@@ -18,6 +18,10 @@ resume
 owlish.md
 
 # Local machine env persisted by install.sh (browser dir)
+
+# Approvals for project names allowed on a tailored CV. Local only: this file
+# names proprietary work, and this repository is published.
+project-names.json
 .cv-env
 
 # Python
