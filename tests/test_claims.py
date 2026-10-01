@@ -20,10 +20,11 @@ reproducing it, not by trusting a grep.
 """
 
 import json
-import subprocess
 from pathlib import Path
 
 import pytest
+
+from authorship import authored_count, default_author
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "claim-evidence.json"
@@ -42,18 +43,20 @@ def _cvs():
     return sorted(COMPANIES.rglob("cv-*.json"))
 
 
-def _authored_count(lab: Path, repo: str, pattern: str) -> int:
+def _count(lab: Path, repo: str, pattern: str) -> int:
     base = lab / repo
     if not (base / ".git").is_dir():
         pytest.skip(f"{repo} not present")
-    out = subprocess.run(
-        ["git", "-C", str(base), "log", "--author=Jeziel", "--name-only",
-         "--pretty=format:", "--", pattern],
-        capture_output=True, text=True,
-    ).stdout
-    files = {r.strip() for r in out.splitlines()
-             if r.strip() and "node_modules" not in r}
-    return len(files)
+    return authored_count(base, pattern, config_author())
+
+
+def config_author() -> str:
+    """Whose commits count, from the local config, then the git identity."""
+    if CONFIG.exists():
+        author = json.loads(CONFIG.read_text()).get("author", "")
+        if author:
+            return author
+    return default_author()
 
 
 # ---- structural, no config required -----------------------------------
@@ -137,7 +140,7 @@ def test_figures_are_reproducible():
             if phrase not in text:
                 offenders.append(f"{company}: CV does not contain {phrase!r}")
                 continue
-            actual = _authored_count(lab, entry["repo"], entry["glob"])
+            actual = _count(lab, entry["repo"], entry["glob"])
             checked += 1
             if actual != entry["expect"]:
                 offenders.append(
