@@ -119,9 +119,7 @@ def test_g7_contact_passes_with_email_phone_linkedin():
 
 
 def test_g7_contact_fails_when_linkedin_missing():
-    text = GOOD_TEXT.replace(
-        "https://www.linkedin.com/in/jezielcarvalho", "linkedin.com"
-    )
+    text = GOOD_TEXT.replace(GOOD_CV["personal"]["linkedin"], "linkedin.com")
     assert not ats.gate_contact(text, GOOD_CV).passed
 
 
@@ -140,7 +138,8 @@ def test_g8_completeness_fails_on_missing_skill():
 
 
 def test_g9_file_passes_for_small_pdf(tmp_path):
-    pdf = tmp_path / "JezielLopesCarvalho-en.pdf"
+    stem = "".join(GOOD_CV["personal"]["name"].split())
+    pdf = tmp_path / f"{stem}-en.pdf"
     pdf.write_bytes(b"%PDF-1.4 fake")
     assert ats.gate_file(pdf).passed
 
