@@ -19,9 +19,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from approvals import (  # noqa: E402
     APPROVALS,
-    COMPANIES,
     company_id,
     company_of,
+    discover_cvs,
     leaked,
     load_config,
 )
@@ -36,15 +36,13 @@ def _load():
 
 
 def _cv_files():
-    if not COMPANIES.is_dir():
-        return []
-    return sorted(COMPANIES.rglob("cv-*.json"))
+    return discover_cvs()
 
 
 def test_every_cv_is_scanned():
     """A rename or move must not silently take a CV out of the gate."""
-    if not COMPANIES.is_dir():
-        pytest.skip("no companies/ yet: candidate data is gitignored")
+    if not _cv_files():
+        pytest.skip("no tailored CVs yet: candidate data is gitignored")
     assert _cv_files(), "no tailored CVs found; the gate would pass vacuously"
 
 
