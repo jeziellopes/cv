@@ -526,7 +526,7 @@ def resolve_paths(company, lang):
     else:
         cv_filename = "cv.json" if lang == "en" else f"cv-{lang}.json"
         cv_path = BASE_DIR / cv_filename
-        pdf_out = BASE_DIR / f"resume-{lang}.pdf"
+        pdf_out = BASE_DIR / f"{candidate_filename_stem(cv_path)}-{lang}.pdf"
     return cv_path, pdf_out, BASE_DIR / "index.html"
 
 
