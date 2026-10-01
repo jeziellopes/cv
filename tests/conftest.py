@@ -24,11 +24,11 @@ def stacked_lines(texts, page=0):
     return lines
 
 
-GOOD_TEXT = """Jeziel Lopes Carvalho
+GOOD_TEXT = """Sample Candidate
 Full Stack Engineer
-+5531993841675
-jeziel@example.com
-https://www.linkedin.com/in/jezielcarvalho
++55 11 0000-0000
+candidate@example.com
+https://www.linkedin.com/in/sample-candidate
 
 Summary
 Experienced engineer with five years building web applications.
@@ -54,11 +54,11 @@ English
 
 GOOD_CV = {
     "personal": {
-        "name": "Jeziel Lopes Carvalho",
+        "name": "Sample Candidate",
         "title": "Full Stack Engineer",
-        "phone": "+5531993841675",
-        "email": "jeziel@example.com",
-        "linkedin": "https://www.linkedin.com/in/jezielcarvalho",
+        "phone": "+55 11 0000-0000",
+        "email": "candidate@example.com",
+        "linkedin": "https://www.linkedin.com/in/sample-candidate",
         "location": "Remote",
     },
     "summary": "Experienced engineer with five years building web applications.",
@@ -92,9 +92,9 @@ GOOD_CV = {
 
 GOOD_LINES = stacked_lines(
     [
-        "Jeziel Lopes Carvalho",
+        "Sample Candidate",
         "Full Stack Engineer",
-        "+5531993841675 | jeziel@example.com | https://www.linkedin.com/in/jezielcarvalho",
+        "+55 11 0000-0000 | candidate@example.com | https://www.linkedin.com/in/sample-candidate",
         "Summary",
         "Experienced engineer with five years building web applications.",
         "Experience",
