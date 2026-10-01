@@ -24,6 +24,12 @@ owlish.md
 project-names.json
 .cv-env
 
+# Per-application claim evidence: declined terms, single-org attributions and the
+# repo behind each quantified figure. Local only, for the same reason: it names
+# repos and customer work. The gate that reads it, tests/test_claims.py, is
+# company agnostic and carries no application data of its own.
+claim-evidence.json
+
 # Python
 __pycache__/
 *.py[cod]
