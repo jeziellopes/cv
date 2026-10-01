@@ -1,6 +1,7 @@
 """The deterministic scorecard: composition, formulas, and stable --json output."""
 
 import json
+from pathlib import Path
 
 import ats
 from conftest import GOOD_CV, GOOD_LINES, GOOD_TEXT
@@ -57,7 +58,8 @@ def test_contact_information_full_credit():
 
 
 def test_contact_information_proportional_when_missing():
-    text = GOOD_TEXT.replace("https://www.linkedin.com/in/jezielcarvalho", "")
+    """Remove the LinkedIn URL via the fixture, so the two cannot drift apart."""
+    text = GOOD_TEXT.replace(GOOD_CV["personal"]["linkedin"], "")
     assert ats.score_contact_information(text).score == 67
 
 
@@ -134,7 +136,8 @@ def test_leadership_scales_with_vocabulary():
 
 
 def test_filename_full_credit_for_first_last():
-    check = ats.score_filename(__import__("pathlib").Path("JezielLopesCarvalho-en.pdf"))
+    stem = "".join(GOOD_CV["personal"]["name"].split())
+    check = ats.score_filename(Path(f"{stem}-en.pdf"))
     assert check.score == 100
 
 
