@@ -13,6 +13,22 @@ ROOT = Path(__file__).resolve().parent.parent
 COMPANIES = ROOT / "companies"
 APPROVALS = ROOT / "project-names.json"
 
+# The untargeted CVs at the repo root, which no per-application rules cover.
+GENERAL_KEY = "_general"
+GENERAL_FILES = ("cv.json", "cv-pt.json")
+
+
+def discover_cvs() -> list[Path]:
+    """Every tailored CV, plus the untargeted general ones."""
+    found: list[Path] = []
+    if COMPANIES.is_dir():
+        found += sorted(COMPANIES.rglob("cv-*.json"))
+    for name in GENERAL_FILES:
+        path = ROOT / name
+        if path.exists():
+            found.append(path)
+    return found
+
 
 def load_config() -> dict:
     return json.loads(APPROVALS.read_text())
@@ -22,8 +38,11 @@ def company_of(path: Path) -> str:
     """The application a file belongs to.
 
     Variants nest as `companies/<company>/<role>/`, so the company is the first
-    directory under `companies/`, not the leaf.
+    directory under `companies/`, not the leaf. The untargeted CVs at the root
+    share one key, since no per-application rule covers them.
     """
+    if path.resolve().parent == ROOT.resolve():
+        return GENERAL_KEY
     rel = path.resolve().relative_to(COMPANIES.resolve())
     return rel.parts[0]
 

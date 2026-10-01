@@ -24,6 +24,7 @@ from pathlib import Path
 
 import pytest
 
+from approvals import company_of, discover_cvs
 from authorship import authored_count, default_author
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -38,9 +39,7 @@ def _load():
 
 
 def _cvs():
-    if not COMPANIES.is_dir():
-        return []
-    return sorted(COMPANIES.rglob("cv-*.json"))
+    return discover_cvs()
 
 
 def _count(lab: Path, repo: str, pattern: str) -> int:
@@ -97,7 +96,7 @@ def test_declined_terms_absent_everywhere():
         low = path.read_text(errors="replace").lower()
         for term in config.get("declined_terms", []):
             if term.lower() in low:
-                offenders.append(f"{path.parts[-2]}: {term}")
+                offenders.append(f"{path.name}: {term}")
     assert not offenders, (
         "terms the operator declined appear in a CV: " + ", ".join(offenders)
     )
@@ -110,7 +109,7 @@ def test_single_org_claims_stay_in_their_org():
     offenders = []
     for path in _cvs():
         cv = json.loads(path.read_text())
-        company = path.parts[-2]
+        company = company_of(path)
         allowed = single.get(company, {})
         for tech, orgs in allowed.items():
             for job in cv.get("experience", []):
@@ -129,7 +128,7 @@ def test_figures_are_reproducible():
     offenders, checked = [], 0
 
     for company, entries in config.get("figures", {}).items():
-        matches = [p for p in _cvs() if p.parts[-2] == company]
+        matches = [p for p in _cvs() if company_of(p) == company]
         if not matches:
             offenders.append(f"{company}: no CV found for the configured figures")
             continue
