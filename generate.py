@@ -5,7 +5,7 @@
 # Usage:
 #   cv generate                                  → index.html (cv.json, classic)
 #   cv generate --pdf                            → index.html + resume-en.pdf
-#   cv generate --company <name> --pdf           → companies/<name>/JezielLopesCarvalho-en.pdf
+#   cv generate --company <name> --pdf           → companies/<name>/<CandidateName>-en.pdf
 #   cv generate --lang pt --theme modern --pdf
 #   cv new acme                                  → scaffold companies/acme/cv-en.json
 #
@@ -19,6 +19,7 @@ import re
 import sys
 import html as _html
 import shutil
+import unicodedata
 from pathlib import Path
 from typing import Optional
 
@@ -501,11 +502,27 @@ def translate_text_with_keywords(text: str, source_lang: str = "en", target_lang
 
 # ---- CLI commands -------------------------------------------
 
+def candidate_filename_stem(cv_path: Path) -> str:
+    """The PDF filename stem, taken from the CV rather than hardcoded.
+
+    A tailored PDF is named for the candidate it describes, so the name is
+    data in cv.json and never a literal in this module.
+    """
+    try:
+        cv = json.loads(cv_path.read_text())
+        name = cv["personal"]["name"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return "cv"
+    ascii_name = unicodedata.normalize("NFKD", name)
+    ascii_name = "".join(c for c in ascii_name if not unicodedata.combining(c))
+    return "".join(ascii_name.split()) or "cv"
+
+
 def resolve_paths(company, lang):
     if company:
         company_dir = BASE_DIR / "companies" / company
         cv_path = company_dir / f"cv-{lang}.json"
-        pdf_out = company_dir / f"JezielLopesCarvalho-{lang}.pdf"
+        pdf_out = company_dir / f"{candidate_filename_stem(cv_path)}-{lang}.pdf"
     else:
         cv_filename = "cv.json" if lang == "en" else f"cv-{lang}.json"
         cv_path = BASE_DIR / cv_filename
@@ -528,7 +545,7 @@ def resolve_browsers_path():
 
 @app.command()
 def generate(
-    company: Annotated[Optional[str], typer.Option("--company", "-c", help="Company ID (reads companies/{id}/cv-{lang}.json, outputs companies/{id}/JezielLopesCarvalho-{lang}.pdf)")] = None,
+    company: Annotated[Optional[str], typer.Option("--company", "-c", help="Company ID (reads companies/{id}/cv-{lang}.json, writes companies/{id}/<CandidateName>-{lang}.pdf)")] = None,
     lang: Annotated[str, typer.Option("--lang", "-l", help="Language code (en, pt)")] = "en",
     theme: Annotated[str, typer.Option("--theme", "-t", help="Theme: classic, modern, minimal")] = "classic",
     pdf: Annotated[bool, typer.Option("--pdf", help="Export PDF after rendering HTML")] = False,
