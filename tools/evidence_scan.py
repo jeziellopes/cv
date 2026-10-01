@@ -17,6 +17,7 @@ comment naming an example system.
 Usage:
     python3 evidence_scan.py --root ~/lab
     python3 evidence_scan.py --root ~/lab --probes mongodb jwt
+    python3 evidence_scan.py --author "A. Person"     # count someone else's commits
 """
 
 import argparse
@@ -68,19 +69,29 @@ def is_noise(rel: str) -> bool:
     return any(low.endswith(n) or n in low.split("/")[-1] for n in NOISE_FILES)
 
 
-def authored_files(repo: Path, suffixes):
-    """Files the candidate authored, by git log over their extensions."""
-    out = git(repo, "log", "--author=Jeziel", "--name-only", "--pretty=format:",
-              "--", *suffixes)
+def authored_files(repo: Path, suffixes, author: str = ""):
+    """Files the author committed, by git log over their extensions.
+
+    The author match is case-insensitive: git's --author is case-sensitive, so
+    a single spelling silently skips every project where the author committed
+    under a differently-cased form of the same address.
+
+    An empty author means no filter, so a machine without a configured
+    identity still reports evidence rather than nothing.
+    """
+    args = ["log", "--name-only", "--pretty=format:"]
+    if author:
+        args[1:1] = [f"--author={author}", "-i"]
+    out = git(repo, *args, "--", *suffixes)
     return sorted({r.strip() for r in out.splitlines()
                    if r.strip() and not is_noise(r.strip())})
 
 
-def scan_repo(repo: Path, probes):
+def scan_repo(repo: Path, probes, author: str = ""):
     hits = {}
     suffixes = ("*.ts", "*.tsx", "*.js", "*.jsx", "*.py", "*.json",
                 "*.yml", "*.yaml", "*.tf", "*.sql", "*.md", "Dockerfile")
-    for rel in authored_files(repo, suffixes):
+    for rel in authored_files(repo, suffixes, author):
         path = repo / rel
         try:
             if not path.is_file() or path.stat().st_size > MAX_BYTES:
@@ -104,16 +115,28 @@ def find_repos(root: Path):
         yield repo
 
 
+def git_config_author() -> str:
+    """The git identity for this machine, used when --author is not given."""
+    for args in (["config", "user.name"], ["config", "--global", "user.name"]):
+        out = subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
+        if out:
+            return out
+    return ""
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=str(Path.home() / "lab"))
     ap.add_argument("--probes", nargs="*", default=None)
+    ap.add_argument("--author", default=None,
+                    help="git author to filter by (default: this machine's git identity)")
     ap.add_argument("--repo", action="append", default=None,
                     help="limit to these repo names")
     args = ap.parse_args()
 
     probes = PROBES if not args.probes else {
         k: PROBES[k] for k in args.probes if k in PROBES}
+    author = args.author if args.author is not None else git_config_author()
     root = Path(args.root).expanduser().resolve()
     limit = set(args.repo or [])
 
@@ -123,11 +146,12 @@ def main():
         if limit and repo.name not in limit:
             continue
         scanned += 1
-        hits = scan_repo(repo, probes)
+        hits = scan_repo(repo, probes, author)
         if hits:
             found[str(repo.relative_to(root))] = hits
 
-    print(f"scanned {scanned} authored repos under {root}\n")
+    print(f"scanned {scanned} repos under {root}")
+    print(f"author filter: {author or '(none: every commit counts)'}\n")
     for repo, hits in sorted(found.items()):
         print(f"{repo}")
         for label in sorted(hits):
