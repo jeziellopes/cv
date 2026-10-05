@@ -170,6 +170,49 @@ function currentJobId() {
   return fromQuery ? fromQuery[1] : "";
 }
 
+// An external application is an anchor whose target LinkedIn hides behind a
+// redirect. Easy Apply has no external URL at all: its control is a button, so
+// this returns nothing, which is the correct answer for those jobs.
+const APPLY_SELECTORS = [
+  'a[aria-label*="apply on company" i]',
+  'a[aria-label*="candidat" i]',
+  'a[aria-label*="apply" i]',
+  'a[href*="/safety/go"]',
+];
+
+function unwrapApplyHref(href) {
+  if (!href) return "";
+  let url;
+  try {
+    url = new URL(href, location.href);
+  } catch {
+    return "";
+  }
+  const isLinkedIn = /(^|\.)linkedin\.com$/i.test(url.hostname);
+  if (isLinkedIn && url.pathname.startsWith("/safety/go")) {
+    // The searchParams getter already decodes once; decoding again would
+    // corrupt a URL that legitimately contains percent escapes.
+    const target = url.searchParams.get("url");
+    return target && /^https?:\/\//i.test(target) ? target : "";
+  }
+  return /^https?:\/\//i.test(url.href) ? url.href : "";
+}
+
+function applyUrl() {
+  for (const sel of APPLY_SELECTORS) {
+    let el;
+    try {
+      el = document.querySelector(sel);
+    } catch {
+      continue;
+    }
+    if (!el) continue;
+    const url = unwrapApplyHref(el.href || el.getAttribute("href") || "");
+    if (url) return url;
+  }
+  return "";
+}
+
 // A job page is one where the URL names a job, or a description pane exists.
 function isJobPage() {
   if (currentJobId()) return true;
@@ -244,6 +287,7 @@ function extract() {
     company,
     location: firstText(SELECTORS.location) || jsonLd.location || "",
     url: id ? `https://www.linkedin.com/jobs/view/${id}/` : location.href,
+    apply_url: applyUrl(),
     description: descriptionText() || jsonLd.description || "",
     source: "linkedin-extension",
   };
@@ -392,6 +436,174 @@ async function onCapture(button) {
     toast(`Not saved: ${(result && result.error) || "unknown error"}`, false);
     log("failed", result);
   }
+  await refreshJobState();
+  refreshButtons();
+}
+
+// ---- step awareness --------------------------------------------------------
+//
+// A capture has three steps: captured (the JD is in the ledger), cv-ready (a
+// tailored CV exists on disk), applied (the application went out). The page
+// reads the step from the local server by job id, so a job already in the
+// pipeline shows where it is instead of inviting a second capture.
+
+const APPLIED_BUTTON_ID = "cv-applied-button";
+
+const STEP_LABEL = {
+  none: "Apply with CV",
+  captured: "CV pending",
+  "cv-ready": "CV ready",
+  applied: "Applied",
+  skipped: "Skipped",
+};
+
+let jobState = null;   // {found, slug, step, apply_url} when this job is known
+let stateJobId = "";   // the job id the state belongs to
+
+async function ask(message) {
+  try {
+    return await chrome.runtime.sendMessage(message);
+  } catch {
+    return { ok: false };
+  }
+}
+
+async function refreshJobState() {
+  const id = currentJobId();
+  if (!id) return;
+  const res = await ask({ type: "jobState", id });
+  // A slow answer must not land on a job the operator has already left.
+  if (currentJobId() !== id) return;
+  stateJobId = id;
+  jobState = res && res.ok ? res.job || null : null;
+}
+
+function currentStep() {
+  if (!jobState || stateJobId !== currentJobId()) return "none";
+  return jobState.step || "captured";
+}
+
+function openApply() {
+  const url = jobState && jobState.apply_url;
+  if (url) {
+    window.open(url, "_blank", "noopener");
+    return;
+  }
+  toast("This job uses Easy Apply. Use LinkedIn's own Apply button.", true);
+}
+
+async function markApplied(button) {
+  if (!jobState || !jobState.slug) return;
+  button.disabled = true;
+  const res = await ask({ type: "markApplied", payload: { slug: jobState.slug } });
+  if (res && res.ok) {
+    jobState.step = "applied";
+    toast("Marked applied.", true);
+    refreshButtons();
+  } else {
+    button.disabled = false;
+    toast(`Not marked: ${(res && res.error) || "unknown error"}`, false);
+  }
+}
+
+async function onButtonClick(button) {
+  const step = currentStep();
+  if (step === "cv-ready") return openApply();
+  if (step === "applied" || step === "skipped") return;
+  // none: first capture. captured: the JD is queued, re-clicking syncs it.
+  return onCapture(button);
+}
+
+// The button doubles as a step badge, and a small second control appears once a
+// CV exists, so an application can be recorded after it has been sent.
+function refreshButtons() {
+  const button = document.getElementById(BUTTON_ID);
+  if (!button) return;
+  const step = currentStep();
+  button.textContent = STEP_LABEL[step] || STEP_LABEL.none;
+  button.dataset.step = step;
+  button.disabled = step === "applied";
+  button.title = step === "none" ? "Apply with CV"
+    : `CV pipeline: ${STEP_LABEL[step] || step}`;
+
+  const mark = document.getElementById(APPLIED_BUTTON_ID);
+  const want = step === "cv-ready";
+  if (want && !mark) {
+    const created = document.createElement("button");
+    created.id = APPLIED_BUTTON_ID;
+    created.type = "button";
+    created.className = "cv-applied";
+    created.textContent = "Mark applied";
+    created.addEventListener("click", () => markApplied(created));
+    if (button.parentElement) {
+      button.parentElement.insertBefore(created, button.nextSibling);
+    }
+  } else if (!want && mark) {
+    mark.remove();
+  }
+}
+
+// ---- reconciling with LinkedIn's own record --------------------------------
+//
+// The ledger recorded that a CV was finished, never that an application went
+// out. LinkedIn does know, on its Applied list, so that page gets a control
+// that reads the job ids it displays and hands them to the local server.
+
+const RECONCILE_ID = "cv-reconcile-button";
+
+function appliedIds() {
+  const ids = new Set();
+  let anchors;
+  try {
+    anchors = document.querySelectorAll('a[href*="/jobs/view/"]');
+  } catch {
+    return [];
+  }
+  for (const anchor of anchors) {
+    const href = String(anchor.href || anchor.getAttribute("href") || "");
+    const match = href.match(/\/jobs\/view\/(\d+)/);
+    if (match) ids.add(match[1]);
+  }
+  return [...ids];
+}
+
+function isAppliedList() {
+  return /cardType=APPLIED|applied/i.test(location.href) && appliedIds().length > 0;
+}
+
+async function onReconcile(button) {
+  const ids = appliedIds();
+  if (!ids.length) {
+    toast("No applied jobs found on this page.", false);
+    return;
+  }
+  button.disabled = true;
+  const res = await ask({ type: "reconcile", ids });
+  button.disabled = false;
+  if (res && res.ok) {
+    toast(`Marked ${res.count} capture(s) applied.`, true);
+  } else {
+    toast(`Not reconciled: ${(res && res.error) || "unknown error"}`, false);
+  }
+}
+
+function injectReconcile() {
+  const existing = document.getElementById(RECONCILE_ID);
+  if (!isAppliedList()) {
+    if (existing) existing.remove();
+    return;
+  }
+  if (existing || !document.body) return;
+  const host = document.querySelector("main") || document.body;
+  if (!host) return;
+  const button = document.createElement("button");
+  button.id = RECONCILE_ID;
+  button.type = "button";
+  button.className = "cv-reconcile";
+  button.textContent = "Reconcile with the CV ledger";
+  button.title = "Mark each job on this list that the ledger knows as applied";
+  button.addEventListener("click", () => onReconcile(button));
+  host.insertBefore(button, host.firstChild);
 }
 
 // The job header's own controls. The aria-labels survive hashed class names,
@@ -446,6 +658,8 @@ function inject() {
 
   if (!shouldShow) {
     if (existing) existing.remove();
+    const stale = document.getElementById(APPLIED_BUTTON_ID);
+    if (stale) stale.remove();
     return;
   }
   if (!document.body) return;
@@ -478,7 +692,7 @@ function inject() {
   button.textContent = "Apply with CV";
   button.title = "Apply with CV";
   button.setAttribute("aria-label", "Apply with CV");
-  button.addEventListener("click", () => onCapture(button));
+  button.addEventListener("click", () => onButtonClick(button));
 
   if (anchor) {
     // The anchor sits in its own wrapper inside the action bar, and that
@@ -495,6 +709,11 @@ function inject() {
     parent.insertBefore(button, parent.firstChild);
   }
   log("button injected", mode);
+
+  // The label starts at the capture action and is corrected once the server
+  // answers, so the page is usable immediately and accurate a moment later.
+  button.dataset.step = "none";
+  refreshJobState().then(refreshButtons);
 }
 
 let scheduled = false;
@@ -504,6 +723,7 @@ function schedule() {
   setTimeout(() => {
     scheduled = false;
     inject();
+    injectReconcile();
   }, 400);
 }
 

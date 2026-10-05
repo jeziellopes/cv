@@ -125,3 +125,38 @@ def test_has_cv_reports_whether_a_capture_is_still_pending(base):
 
 def test_has_cv_is_false_for_an_unknown_slug(base):
     assert inbox.has_cv("never-captured", base) is False
+
+
+def test_apply_url_lands_in_the_file_and_the_ledger(base):
+    """A non-Easy-Apply job's company link must survive the capture."""
+    payload = dict(PAYLOAD,
+                   apply_url="https://rotik.inhire.app/vagas/1?source=linkedin")
+    cap = inbox.save_capture(payload, base)
+    text = (base / "companies" / cap.slug / "description.md").read_text()
+    assert "apply: https://rotik.inhire.app/vagas/1?source=linkedin" in text
+    assert inbox.load_ledger()[0]["apply_url"] == \
+        "https://rotik.inhire.app/vagas/1?source=linkedin"
+
+
+def test_easy_apply_writes_no_apply_line(base):
+    cap = inbox.save_capture(dict(PAYLOAD, apply_url=""), base)
+    text = (base / "companies" / cap.slug / "description.md").read_text()
+    assert "apply:" not in text
+    assert inbox.load_ledger()[0]["apply_url"] == ""
+
+
+def test_a_non_http_apply_value_is_rejected(base):
+    """A stray string must not be written into the JD file as a link."""
+    cap = inbox.save_capture(dict(PAYLOAD, apply_url="javascript:alert(1)"), base)
+    text = (base / "companies" / cap.slug / "description.md").read_text()
+    assert "apply:" not in text
+    assert inbox.load_ledger()[0]["apply_url"] == ""
+
+
+def test_the_header_order_is_unchanged_without_an_apply_link(base):
+    """Existing consumers read title, company, location, url in order."""
+    cap = inbox.save_capture(PAYLOAD, base)
+    lines = (base / "companies" / cap.slug / "description.md").read_text().splitlines()
+    assert lines[0] == PAYLOAD["title"]
+    assert lines[1] == PAYLOAD["company"]
+    assert lines[3] == PAYLOAD["url"]

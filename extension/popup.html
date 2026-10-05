@@ -5,13 +5,58 @@
     <title>CV Job Capture</title>
     <style>
       body {
-        width: 320px;
+        width: 360px;
+        max-height: 560px;
         margin: 0;
-        padding: 16px;
-        font: 13px/1.5 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+        padding: 14px 16px 16px;
+        font: 13px/1.45 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
         color: #1a1a1a;
       }
-      h1 { font-size: 14px; margin: 0 0 12px; }
+      h1 { font-size: 14px; margin: 0 0 10px; }
+      h2 { font-size: 12px; margin: 0 0 8px; color: #56606b;
+           text-transform: uppercase; letter-spacing: 0.04em; }
+      #list { max-height: 380px; overflow-y: auto; }
+      .job {
+        padding: 8px 0;
+        border-bottom: 1px solid #ececec;
+      }
+      .head { display: flex; align-items: baseline; gap: 8px; }
+      .name { flex: 1; font-weight: 600; }
+      .badge {
+        flex: 0 0 auto;
+        padding: 1px 8px;
+        border-radius: 10px;
+        font-size: 11px;
+        font-weight: 600;
+        color: #fff;
+        background: #56606b;
+      }
+      .badge.captured { background: #8a6116; }
+      .badge.cv-ready { background: #0b7a3b; }
+      .badge.applied { background: #56606b; }
+      .badge.skipped { background: #6b3f3f; }
+      code {
+        display: block;
+        margin: 2px 0 4px;
+        font-size: 11px;
+        color: #56606b;
+      }
+      .actions { display: flex; gap: 10px; align-items: center; }
+      .actions a { color: #0a66c2; text-decoration: none; font-weight: 600; }
+      .actions a:hover { text-decoration: underline; }
+      button {
+        padding: 6px 10px;
+        border: 0;
+        border-radius: 6px;
+        background: #0a66c2;
+        color: #fff;
+        font: 600 12px inherit;
+        cursor: pointer;
+      }
+      button.mark { background: #fff; color: #0b7a3b; border: 1px solid #0b7a3b; }
+      button.secondary { background: #e8e8e8; color: #1a1a1a; }
+      details { margin-top: 12px; }
+      summary { cursor: pointer; font-weight: 600; }
       label { display: block; margin: 10px 0 4px; font-weight: 600; }
       input {
         width: 100%;
@@ -21,40 +66,34 @@
         border-radius: 6px;
         font: inherit;
       }
-      .row { display: flex; gap: 8px; margin-top: 14px; }
-      button {
-        flex: 1;
-        padding: 8px 10px;
-        border: 0;
-        border-radius: 6px;
-        background: #0a66c2;
-        color: #fff;
-        font: 600 13px inherit;
-        cursor: pointer;
-      }
-      button.secondary { background: #e8e8e8; color: #1a1a1a; }
-      #status { margin-top: 12px; min-height: 18px; }
+      .row { display: flex; gap: 8px; margin-top: 12px; }
+      .row button { flex: 1; padding: 8px 10px; }
+      .muted { color: #56606b; }
+      #status { margin-top: 10px; min-height: 18px; }
       .ok { color: #0b7a3b; }
       .err { color: #b3261e; }
-      code { background: #f2f2f2; padding: 1px 5px; border-radius: 4px; }
+      code { background: transparent; }
     </style>
   </head>
   <body>
     <h1>CV Job Capture</h1>
-    <p style="margin: 0 0 8px">
-      Run <code>cv inbox serve</code> and paste the token it prints.
-    </p>
+    <h2>Recent jobs</h2>
+    <div id="list"></div>
 
-    <label for="token">Token</label>
-    <input id="token" type="password" autocomplete="off" spellcheck="false" />
-
-    <label for="port">Port</label>
-    <input id="port" type="number" min="1" max="65535" />
-
-    <div class="row">
-      <button id="save">Save</button>
-      <button id="test" class="secondary">Test</button>
-    </div>
+    <details>
+      <summary>Connection</summary>
+      <p class="muted" style="margin: 8px 0 0">
+        Run <code>cv inbox serve</code> and paste the token it prints.
+      </p>
+      <label for="token">Token</label>
+      <input id="token" type="password" autocomplete="off" spellcheck="false" />
+      <label for="port">Port</label>
+      <input id="port" type="number" min="1" max="65535" />
+      <div class="row">
+        <button id="save">Save</button>
+        <button id="test" class="secondary">Test</button>
+      </div>
+    </details>
     <div id="status"></div>
 
     <script src="popup.js"></script>

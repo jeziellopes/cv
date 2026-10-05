@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CV Job Capture",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "description": "Send a LinkedIn job you pick to your local CV pipeline.",
   "permissions": ["storage"],
   "host_permissions": [
