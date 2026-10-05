@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "CV Job Capture",
+  "version": "1.0.8",
+  "description": "Send a LinkedIn job you pick to your local CV pipeline.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "CV Job Capture"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.linkedin.com/*",
+        "https://linkedin.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
