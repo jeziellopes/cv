@@ -11,6 +11,8 @@ cv/
 ├── cv.json             ← base resume data in English (edit this)
 ├── cv-pt.json          ← base resume data in Portuguese-BR
 ├── generate.py         ← template engine + PDF exporter
+├── inbox.py            ← local capture endpoint for the browser extension
+├── extension/          ← Chrome extension: "Salvar no CV" on a LinkedIn job
 ├── requirements.txt    ← Python dependencies
 ├── messages/           ← recruiter messages (one .md per opportunity)
 ├── resume-en.pdf       ← generated base PDF (English)
@@ -101,6 +103,40 @@ cv search "react" --ingest 1                   # write the top match's JD to com
 The fit score is a ranking signal, not a match rate: the CV fit is the base, and a query multiplies it (up to 1.5x), so a typed query boosts within-stack matches but never lifts an off-stack posting (a C#/Angular job can't ride a "full stack" title to the top of a JS/TS CV). CV fit blends distinctive JD terms, the CV's skills found in the posting, and title overlap; generic prose in English and Portuguese is ignored and diacritics are folded. Each result shows which of your skills the posting matches. Around 45-65% is a strong match for a generalist CV; low-signal sources compress everything toward 15-25%. Rank against a tailored CV with `--cv companies/<slug>/cv-en.json` for a sharper signal.
 
 Sources: `programathor` (default, Brazilian dev board; serves a ~15-job recent feed), `remotive`, `remoteok`, `linkedin` (guest endpoint, best-effort and often blocked), and `gupy` (best-effort, frequently unreachable). Client-rendered boards (vagas.com.br, GeekHunter, inhire) aren't scrapable and belong on the `--import` path. `--json` emits a machine-readable list. `--ingest N` writes `companies/<slug>/description.md` and prints the next pipeline commands.
+
+## Inbox (browser capture)
+
+Pick a job in your own browser and hand it to the pipeline without copy-paste.
+
+1. Start the local endpoint. It binds loopback only and prints a token:
+
+   ```bash
+   cv inbox serve
+   ```
+
+2. Install the extension once. In Chrome, open `chrome://extensions`, enable
+   **Developer mode**, choose **Load unpacked**, and select `extension/`.
+   Click the extension icon, paste the token, **Save**, then **Test**.
+
+3. Open a LinkedIn job. A **Salvar no CV** button appears bottom-right. Click
+   it. The JD is written to `companies/<slug>/description.md` and queued.
+
+4. Work the queue:
+
+   ```bash
+   cv inbox list           # what is waiting
+   cv inbox next           # path of the oldest capture
+   cv inbox done <slug>    # mark it processed
+   ```
+
+Tailoring is still a separate step, because it needs answers about which
+projects to include and which may be named. See
+`~/lab/docs/cv/adr/0002-ask-before-naming-projects.md`.
+
+Two notes on what this does and does not do. It does not read LinkedIn on your
+behalf: you browse, you click, one job at a time. And the endpoint requires the
+token because a page you visit can otherwise POST to localhost; the listener is
+bound to `127.0.0.1` and writes only under `companies/`.
 
 ## Themes
 
@@ -269,8 +305,15 @@ cv generate --company recruiter-name --lang en --pdf
 ### Phase 2 - Automated generation *(planned)*
 Parse `./messages/*.md` to extract role requirements automatically, then generate a tailored `cv-{company}-en.json` using an AI-assisted pipeline - no manual editing required.
 
-### Phase 3 - LinkedIn integration *(future)*
-Fetch recruiter messages directly from LinkedIn via API or browser automation, triggering the full pipeline end-to-end.
+### Phase 3 - LinkedIn integration *(manual selection, done)*
+
+Browse LinkedIn yourself and click save on a job you want. The extension sends
+that JD to a local endpoint, which queues it as `companies/<slug>/description.md`.
+Nothing scrapes LinkedIn: the operator selects, one job at a time. See
+[Inbox (browser capture)](#inbox-browser-capture).
+
+Still open: turning a queued JD into a tailored CV without a human answering
+the project and naming questions.
 
 ---
 
