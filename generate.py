@@ -27,6 +27,8 @@ import typer
 from typing_extensions import Annotated
 
 import ats
+import evidence
+import guards
 import inbox
 import search as searchmod
 
@@ -75,6 +77,13 @@ app = typer.Typer(
 # Captures from the browser extension land in a queue the operator works
 # through, so the tailoring step never starts from a pasted file.
 app.add_typer(inbox.app, name="inbox")
+
+# Evidence scanning and the project/naming view are their own concern.
+app.add_typer(evidence.app)
+
+# The honesty guards: reproducible figures, and publishable names.
+app.add_typer(guards.claims_app, name="claims")
+app.add_typer(guards.names_app, name="names")
 
 
 @app.callback(invoke_without_command=True)
@@ -635,7 +644,156 @@ def _print_report(report, jd_text=""):
         typer.echo("\n✖ ATS gates failed", err=True)
 
 
-@app.command("ats-check")
+def _company_label(cv_path: Path) -> str:
+    """A stable name for a tailored CV, nested or flat."""
+    folder = cv_path.parent
+    if folder.parent.name == "companies":
+        return folder.name
+    return f"{folder.parent.name}/{folder.name}"
+
+
+def _ats_check_every(lang: str) -> None:
+    """Score every tailored CV and report, so one can be compared to the rest."""
+    root = BASE_DIR / "companies"
+    rows: list[tuple[str, Optional[int], bool, str]] = []
+    worst = 0
+
+    for cv_path in sorted(root.rglob(f"cv-{lang}.json")):
+        folder = cv_path.parent
+        # Pick the PDF for this language, not merely the first one present: a
+        # folder can hold both cv-en and cv-pt, and scoring one against the
+        # other's CV reports a failure that is not real.
+        candidates = sorted(folder.glob(f"*-{lang}.pdf"))
+        pdfs = candidates or sorted(folder.glob("*.pdf"))
+        if not pdfs:
+            rows.append((_company_label(cv_path), None, False, "no PDF"))
+            continue
+        try:
+            cv = json.loads(cv_path.read_text(encoding="utf-8"))
+        except ValueError:
+            rows.append((_company_label(cv_path), None, False, "bad JSON"))
+            continue
+        jd = folder / "description.md"
+        jd_text = jd.read_text(encoding="utf-8") if jd.exists() else ""
+        report = ats.run_checks(pdfs[0], cv=cv, jd_text=jd_text)
+        rows.append((_company_label(cv_path), report.overall,
+                     report.gates_passed, ""))
+
+    failed = [r for r in rows if not r[2]]
+    typer.echo(f"{'application':28} {'score':>6}  gates")
+    typer.echo("-" * 48)
+    for name, score, passed, note in rows:
+        shown = "-" if score is None else str(score)
+        state = "ok" if passed else (note or "FAIL")
+        typer.echo(f"{name:28} {shown:>6}  {state}")
+        if score is not None:
+            worst = worst or score
+
+    scored = [r for r in rows if r[1] is not None]
+    if scored:
+        low = min(r[1] for r in scored)
+        typer.echo(f"\n{len(scored)} scored, lowest {low}.")
+    if failed:
+        typer.echo(f"✖ {len(failed)} not passing gates.", err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
+def status() -> None:
+    """One screen: the capture queue, the CVs on disk, and the naming rules."""
+    entries = inbox.load_ledger()
+    pending = [e for e in entries if not inbox.has_cv(e.get("slug", ""))]
+    ready = [e for e in entries if inbox.has_cv(e.get("slug", ""))]
+    # Exact language files only: this excludes cv-pt.backup.<stamp>.json, which
+    # would otherwise read as a language called "pt.backup.20260328_161326".
+    cvs = sorted(p for p in (BASE_DIR / "companies").rglob("cv-*.json")
+                 if re.fullmatch(r"cv-[a-z]{2}\.json", p.name))
+
+    typer.echo("queue")
+    typer.echo(f"  captures        {len(entries)}")
+    typer.echo(f"  CV ready        {len(ready)}")
+    typer.echo(f"  pending CV      {len(pending)}")
+    if pending:
+        for e in pending:
+            link = "  apply" if e.get("apply_url") else ""
+            typer.echo(f"    {e.get('slug', ''):24} {e.get('company', '')}"
+                       f" - {e.get('title', '')}{link}")
+
+    typer.echo("\nportfolio")
+    typer.echo(f"  tailored CVs    {len(cvs)}")
+    langs = {}
+    for cv in cvs:
+        key = cv.stem.split("-")[-1]
+        langs[key] = langs.get(key, 0) + 1
+    typer.echo("  by language     " +
+               ", ".join(f"{k}={v}" for k, v in sorted(langs.items())))
+
+    typer.echo("\nnext")
+    if pending:
+        typer.echo(f"  cv tailor {pending[0].get('slug')}")
+    else:
+        typer.echo("  nothing queued; capture a job from the extension")
+
+
+@app.command()
+def tailor(
+    slug: Annotated[str, typer.Argument(help="capture slug, e.g. from cv inbox list")],
+) -> None:
+    """Prepare a tailoring session for one captured job.
+
+    Tailoring cannot be automatic: it needs the operator's answers about which
+    projects to include and which may be named. This gathers what those
+    answers depend on, so the session starts informed.
+    """
+    entry = inbox.find_entry(slug)
+    if not entry:
+        typer.echo(f"No capture with slug {slug}.", err=True)
+        raise typer.Exit(1)
+
+    typer.echo(f"{entry.get('company')} - {entry.get('title')}")
+    typer.echo(f"  linkedin  {entry.get('url', '')}")
+    typer.echo(f"  apply     {entry.get('apply_url') or '(none: Easy Apply)'}")
+    typer.echo(f"  jd        companies/{slug}/description.md")
+    typer.echo(f"  CV        {'already built' if inbox.has_cv(slug) else 'not built'}")
+
+    jd = BASE_DIR / "companies" / slug / "description.md"
+    if jd.exists():
+        lines = [line.strip() for line in jd.read_text(encoding="utf-8").splitlines()
+                 if line.strip() and not line.strip().startswith(("http", "apply:"))]
+        # Start at the section that states what the role wants, not the
+        # company's own introduction.
+        start = next(
+            (i for i, line in enumerate(lines)
+             if re.match(r"(requisitos|qualifica|o que esperamos|responsabilidades|"
+                         r"diferenciais|para isso|voc[êe] vai precisar|precisar ter|"
+                         r"experi[êe]ncia|conhecimento|habilidades|requirements|"
+                         r"what you|your day)", line, re.I)),
+            None,
+        )
+        if start is not None:
+            typer.echo("\nwhat the JD asks for:")
+            for line in lines[start:start + 14]:
+                typer.echo(f"  - {line[:88]}")
+        else:
+            typer.echo("\nfirst lines of the JD:")
+            for line in lines[:8]:
+                typer.echo(f"  - {line[:88]}")
+
+    company = slug.split("/")[0]
+    config = guards.load_names()
+    approved = sorted(config.get("approved_by_company", {}).get(company, []))
+    typer.echo(f"\nnames already approved for {company}: "
+               f"{', '.join(approved) if approved else 'none'}")
+    typer.echo("  approve more with: cv names approve "
+               f"{company} <project>")
+
+    typer.echo("\nthe two questions to answer before bullets:")
+    typer.echo("  1. which projects should this CV include?")
+    typer.echo("  2. which of them may be named, for this application only?")
+    typer.echo("\nsee candidates with: cv projects --company " + company)
+
+
+@app.command()
 def ats_check(
     company: Annotated[Optional[str], typer.Option("--company", "-c", help="Company ID")] = None,
     lang: Annotated[str, typer.Option("--lang", "-l", help="Language code")] = "en",
@@ -648,8 +806,13 @@ def ats_check(
     min_score: Annotated[int, typer.Option("--min-score", help="Overall score floor in strict mode")] = 90,
     min_coverage: Annotated[float, typer.Option("--min-coverage", help="JD coverage floor in strict mode")] = 0.60,
     as_json: Annotated[bool, typer.Option("--json", help="Emit machine-readable JSON")] = False,
+    every: Annotated[bool, typer.Option("--all", help="Score every tailored CV.")] = False,
 ):
     """Check a generated CV PDF for ATS safety and score it."""
+    if every:
+        _ats_check_every(lang)
+        return
+
     cv_path, pdf_path, _ = resolve_paths(company, lang)
     if pdf:
         pdf_path = pdf
