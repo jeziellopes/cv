@@ -89,3 +89,11 @@ node_modules/
 package-lock.json
 yarn.lock
 
+# Capture queue and its token. Local only: the ledger names companies the
+# operator is applying to, and the token guards the local endpoint.
+inbox.json
+.cv-inbox-token
+
+# What the page contained when extraction failed, so a broken
+# selector can be fixed from the repository.
+inbox-diagnose.json
