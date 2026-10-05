@@ -97,3 +97,6 @@ inbox.json
 # What the page contained when extraction failed, so a broken
 # selector can be fixed from the repository.
 inbox-diagnose.json
+
+# What each PDF was built from, so a change to the checks can mark it stale.
+.build-*.json
