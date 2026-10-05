@@ -19,4 +19,4 @@ dependencies = [
 cv = "generate:main"
 
 [tool.setuptools]
-py-modules = ["generate", "ats", "search", "inbox", "evidence", "guards"]
+py-modules = ["generate", "ats", "search", "inbox", "evidence", "guards", "staleness"]

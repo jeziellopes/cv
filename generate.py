@@ -31,6 +31,7 @@ import evidence
 import guards
 import inbox
 import search as searchmod
+import staleness
 
 BASE_DIR = Path(__file__).resolve().parent
 BANNER_FONT = "slant"
@@ -615,6 +616,10 @@ def generate(
             )
             browser.close()
 
+        # Record what this PDF was built from, so a later change to the checks
+        # themselves can mark it stale. Timestamps cannot see a rule that did
+        # not exist yet.
+        staleness.write_stamp(BASE_DIR, cv_path, lang)
         typer.echo(f"✔ {pdf_out.relative_to(BASE_DIR)} written")
 
 
@@ -733,6 +738,42 @@ def status() -> None:
         typer.echo(f"  cv tailor {pending[0].get('slug')}")
     else:
         typer.echo("  nothing queued; capture a job from the extension")
+
+
+@app.command()
+def stale(
+    lang: Annotated[Optional[list[str]], typer.Option("--lang", "-l",
+                                                      help="limit to a language")] = None,
+    fix: Annotated[bool, typer.Option("--fix", help="Regenerate the stale ones.")] = False,
+) -> None:
+    """List PDFs that are missing or older than what they are built from.
+
+    A PDF is stale when it is absent, when its CV data changed after it was
+    rendered, or when the renderer did. Nothing about that is stored, so this
+    cannot go out of date itself.
+    """
+    languages = tuple(lang) if lang else ("en", "pt")
+    found = staleness.find_stale(BASE_DIR, languages)
+
+    if not found:
+        typer.echo("Every PDF is up to date.")
+        return
+
+    typer.echo(f"{'application':30} {'lang':4} reason")
+    typer.echo("-" * 58)
+    for s in found:
+        typer.echo(f"{s.label:30} {s.lang:4} {s.reason}")
+    typer.echo(f"\n{len(found)} need regeneration.")
+
+    if not fix:
+        typer.echo("rebuild them with: cv stale --fix")
+        return
+
+    for s in found:
+        company = None if s.cv_path.parent == BASE_DIR else s.label
+        typer.echo(f"  rebuilding {s.label} ({s.lang})")
+        generate(company=company, lang=s.lang, theme="classic", pdf=True)
+    typer.echo(f"rebuilt {len(found)}.")
 
 
 @app.command()
