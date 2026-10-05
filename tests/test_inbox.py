@@ -72,12 +72,47 @@ def test_missing_company_or_title_is_rejected(base):
     assert inbox.load_ledger() == []
 
 
-def test_second_role_at_one_company_gets_its_own_slug(base):
+def test_second_role_at_one_company_nests_under_it(base):
+    """A different role gets companies/<company>/<role>/, not company-2."""
     first = inbox.save_capture(PAYLOAD, base)
-    second = inbox.save_capture(PAYLOAD, base)
-    assert first.slug != second.slug
-    assert second.slug.startswith(first.slug)
-    assert (base / "companies" / second.slug / "description.md").is_file()
+    second = inbox.save_capture(
+        dict(PAYLOAD, title="Backend Engineer",
+             url="https://www.linkedin.com/jobs/view/456"), base)
+    assert first.slug == "starian"
+    assert second.slug == "starian/backend-engineer"
+    assert (base / "companies/starian/description.md").is_file()
+    assert (base / "companies/starian/backend-engineer/description.md").is_file()
+    assert not (base / "companies/starian-2").exists()
+
+
+def test_recapturing_the_same_job_updates_in_place(base):
+    """Repeat clicks on one posting must not mint a second entry."""
+    first = inbox.save_capture(PAYLOAD, base)
+    second = inbox.save_capture(dict(PAYLOAD, title="Renamed role"), base)
+    assert second.slug == first.slug
+    entries = inbox.load_ledger()
+    assert len(entries) == 1, "the same job was queued twice"
+    assert entries[0]["title"] == "Renamed role"
+    assert not (base / "companies" / f"{first.slug}-2").exists()
+
+
+def test_syncing_does_not_undo_a_finished_capture(base):
+    cap = inbox.save_capture(PAYLOAD, base)
+    entries = inbox.load_ledger()
+    entries[0]["status"] = "done"
+    inbox.save_ledger(entries)
+    inbox.save_capture(PAYLOAD, base)
+    assert inbox.load_ledger()[0]["status"] == "done"
+    assert cap.slug == "starian"
+
+
+def test_a_third_role_also_nests_and_stays_unique(base):
+    inbox.save_capture(PAYLOAD, base)
+    inbox.save_capture(dict(PAYLOAD, title="Backend Engineer",
+                            url="https://x/2"), base)
+    third = inbox.save_capture(dict(PAYLOAD, title="Backend Engineer",
+                                    url="https://x/3"), base)
+    assert third.slug == "starian/backend-engineer-2"
 
 
 def test_token_is_stable(tmp_path, monkeypatch):
