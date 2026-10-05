@@ -3,10 +3,12 @@
 from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
 
 import inbox
 
 ROOT = Path(__file__).resolve().parent.parent
+runner = CliRunner()
 
 
 PAYLOAD = {
@@ -195,3 +197,53 @@ def test_the_header_order_is_unchanged_without_an_apply_link(base):
     assert lines[0] == PAYLOAD["title"]
     assert lines[1] == PAYLOAD["company"]
     assert lines[3] == PAYLOAD["url"]
+
+
+# ---- the queue commands -----------------------------------
+
+@pytest.fixture
+def queued(base, monkeypatch):
+    """One capture on disk, with BASE_DIR and the ledger both redirected."""
+    monkeypatch.setattr(inbox, "BASE_DIR", base)
+    inbox.save_capture(PAYLOAD, base)
+    return base
+
+
+def test_show_prints_the_capture_header(queued):
+    result = runner.invoke(inbox.app, ["show", "starian"])
+    assert result.exit_code == 0
+    for expected in ("Starian", PAYLOAD["title"], PAYLOAD["url"]):
+        assert expected in result.stdout
+
+
+def test_show_reports_no_cv_yet(queued):
+    result = runner.invoke(inbox.app, ["show", "starian"])
+    assert "pending" in result.stdout
+
+
+def test_show_an_unknown_slug_fails(queued):
+    assert runner.invoke(inbox.app, ["show", "nope"]).exit_code == 1
+
+
+def test_apply_prefers_the_company_link(queued):
+    inbox.save_capture(dict(PAYLOAD, apply_url="https://acme.test/apply"), queued)
+    result = runner.invoke(inbox.app, ["apply", "starian"])
+    assert result.exit_code == 0
+    assert "https://acme.test/apply" in result.stdout
+
+
+def test_apply_falls_back_to_the_linkedin_url(queued):
+    result = runner.invoke(inbox.app, ["apply", "starian"])
+    assert result.exit_code == 0
+    assert PAYLOAD["url"] in result.stdout
+
+
+def test_status_counts_ready_and_pending(queued):
+    result = runner.invoke(inbox.app, ["status"])
+    assert result.exit_code == 0
+    assert "pending CV       1" in result.stdout
+
+    (queued / "companies" / "starian" / "cv-pt.json").write_text("{}")
+    result = runner.invoke(inbox.app, ["status"])
+    assert "pending CV       0" in result.stdout
+    assert "CV ready         1" in result.stdout
