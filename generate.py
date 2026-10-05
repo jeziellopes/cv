@@ -27,6 +27,7 @@ import typer
 from typing_extensions import Annotated
 
 import ats
+import inbox
 import search as searchmod
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -70,6 +71,10 @@ app = typer.Typer(
     help="cv: edit cv.json, run one command, get a PDF.",
     invoke_without_command=True,
 )
+
+# Captures from the browser extension land in a queue the operator works
+# through, so the tailoring step never starts from a pasted file.
+app.add_typer(inbox.app, name="inbox")
 
 
 @app.callback(invoke_without_command=True)
