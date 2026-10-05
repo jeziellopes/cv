@@ -1,0 +1,76 @@
+#cv-capture-button {
+  font: 600 13px/1 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+/* Sits in the job header, beside Apply and Save. Styled as the primary action
+   so it reads as part of the row, blue and filled the way LinkedIn's own
+   call to action is. */
+#cv-capture-button.cv-inline {
+  flex: 0 0 auto;
+  align-self: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 8px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 24px;
+  background: #0a66c2;
+  color: #fff;
+  font: 600 14px/1 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  white-space: nowrap;
+}
+
+#cv-capture-button.cv-inline:hover {
+  background: #004182;
+}
+
+/* Fallback when the header anchor is not on the page. Deliberately in flow:
+   a fixed overlay lands on top of LinkedIn's own controls. There is no
+   position rule here at all, so nothing can leave the document flow. */
+#cv-capture-button.cv-fallback {
+  display: inline-flex;
+  align-items: center;
+  margin: 8px 0;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 24px;
+  background: #0a66c2;
+  color: #fff;
+  white-space: nowrap;
+}
+
+#cv-capture-button.cv-fallback:hover {
+  background: #004182;
+}
+
+#cv-capture-button:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+#cv-capture-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2147483000;
+  display: none;
+  max-width: 420px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font: 500 13px/1.4 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.cv-toast-ok {
+  background: #0b7a3b;
+  color: #fff;
+}
+
+.cv-toast-err {
+  background: #b3261e;
+  color: #fff;
+}

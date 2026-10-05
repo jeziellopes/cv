@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>CV Job Capture</title>
+    <style>
+      body {
+        width: 320px;
+        margin: 0;
+        padding: 16px;
+        font: 13px/1.5 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+        color: #1a1a1a;
+      }
+      h1 { font-size: 14px; margin: 0 0 12px; }
+      label { display: block; margin: 10px 0 4px; font-weight: 600; }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 7px 8px;
+        border: 1px solid #c9c9c9;
+        border-radius: 6px;
+        font: inherit;
+      }
+      .row { display: flex; gap: 8px; margin-top: 14px; }
+      button {
+        flex: 1;
+        padding: 8px 10px;
+        border: 0;
+        border-radius: 6px;
+        background: #0a66c2;
+        color: #fff;
+        font: 600 13px inherit;
+        cursor: pointer;
+      }
+      button.secondary { background: #e8e8e8; color: #1a1a1a; }
+      #status { margin-top: 12px; min-height: 18px; }
+      .ok { color: #0b7a3b; }
+      .err { color: #b3261e; }
+      code { background: #f2f2f2; padding: 1px 5px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>CV Job Capture</h1>
+    <p style="margin: 0 0 8px">
+      Run <code>cv inbox serve</code> and paste the token it prints.
+    </p>
+
+    <label for="token">Token</label>
+    <input id="token" type="password" autocomplete="off" spellcheck="false" />
+
+    <label for="port">Port</label>
+    <input id="port" type="number" min="1" max="65535" />
+
+    <div class="row">
+      <button id="save">Save</button>
+      <button id="test" class="secondary">Test</button>
+    </div>
+    <div id="status"></div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
