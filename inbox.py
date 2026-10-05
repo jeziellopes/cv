@@ -390,5 +390,74 @@ def done_command(slug: str) -> None:
     raise typer.Exit(code=1)
 
 
+def find_entry(slug: str) -> Optional[dict]:
+    for entry in load_ledger():
+        if entry.get("slug") == slug:
+            return entry
+    return None
+
+
+@app.command("show")
+def show_command(slug: str) -> None:
+    """Show one capture: its header, its apply link, and its CV state."""
+    entry = find_entry(slug)
+    if not entry:
+        typer.echo(f"No capture with slug {slug}.", err=True)
+        raise typer.Exit(code=1)
+    ready = has_cv(slug)
+    typer.echo(f"  company   {entry.get('company', '')}")
+    typer.echo(f"  title     {entry.get('title', '')}")
+    typer.echo(f"  location  {entry.get('location') or '-'}")
+    typer.echo(f"  linkedin  {entry.get('url', '')}")
+    typer.echo(f"  apply     {entry.get('apply_url') or '(none: Easy Apply)'}")
+    typer.echo(f"  status    {entry.get('status', '?')}, CV "
+               f"{'ready' if ready else 'pending'}")
+    typer.echo(f"  captured  {entry.get('captured_at', '')}")
+    typer.echo(f"  jd        companies/{slug}/description.md")
+
+
+@app.command("apply")
+def apply_command(
+    slug: str,
+    open_: bool = typer.Option(False, "--open", help="open it in a browser"),
+) -> None:
+    """Print the link to apply with, preferring the company's own page."""
+    entry = find_entry(slug)
+    if not entry:
+        typer.echo(f"No capture with slug {slug}.", err=True)
+        raise typer.Exit(code=1)
+    url = entry.get("apply_url") or entry.get("url") or ""
+    if not url:
+        typer.echo("No link recorded for this capture.", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(url)
+    if open_:
+        import webbrowser
+
+        webbrowser.open(url)
+
+
+@app.command("status")
+def status_command() -> None:
+    """Summarise the queue: what is waiting and what is done."""
+    entries = load_ledger()
+    if not entries:
+        typer.echo("Queue is empty.")
+        return
+    pending = [e for e in entries if not has_cv(e.get("slug", ""))]
+    ready = [e for e in entries if has_cv(e.get("slug", ""))]
+    with_link = [e for e in entries if e.get("apply_url")]
+
+    typer.echo(f"  captures         {len(entries)}")
+    typer.echo(f"  CV ready         {len(ready)}")
+    typer.echo(f"  pending CV       {len(pending)}")
+    typer.echo(f"  with apply link  {len(with_link)}")
+    if pending:
+        typer.echo("\n  waiting on a CV:")
+        for e in pending:
+            typer.echo(f"    {e.get('slug', ''):24} {e.get('company', '')} - "
+                       f"{e.get('title', '')}")
+
+
 if __name__ == "__main__":
     app()
