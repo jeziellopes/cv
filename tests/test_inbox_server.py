@@ -45,6 +45,7 @@ PAYLOAD = {
     "company": "Projuris",
     "location": "Remote",
     "url": "https://www.linkedin.com/jobs/view/999/",
+    "apply_url": "https://projuris.gupy.io/job/abc?source=linkedin",
     "description": "Requisitos: React, NestJS, RAG e banco vetorial.",
 }
 
@@ -57,6 +58,16 @@ def test_capture_over_http(server):
     written = tmp / body["path"]
     assert written.is_file()
     assert "Requisitos: React" in written.read_text()
+
+
+def test_apply_url_round_trips_over_http(server):
+    base, token, tmp = server
+    _status, body = post(base, PAYLOAD, token)
+    written = (tmp / body["path"]).read_text()
+    assert "apply: https://projuris.gupy.io/job/abc?source=linkedin" in written
+    import json as _json
+    ledger = _json.loads((tmp / "inbox.json").read_text())
+    assert ledger[0]["apply_url"] == PAYLOAD["apply_url"]
 
 
 def test_bad_token_is_refused(server):

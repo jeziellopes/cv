@@ -52,6 +52,80 @@
   cursor: default;
 }
 
+/* The step the capture has reached. The button stops being a call to action
+   once the JD is queued, so it changes colour rather than disappearing: the
+   operator still needs to see, on the page, that this job is already known. */
+#cv-capture-button[data-step="captured"] {
+  background: #8a6116;
+}
+
+#cv-capture-button[data-step="cv-ready"] {
+  background: #0b7a3b;
+}
+
+#cv-capture-button[data-step="applied"] {
+  background: #56606b;
+}
+
+/* Passed over on purpose: shown so the same posting is not captured again. */
+#cv-capture-button[data-step="skipped"] {
+  background: #6b3f3f;
+}
+
+/* Records that an application went out. Kept secondary, and only present once
+   a CV exists, because it is a claim about something done off the page. */
+#cv-applied-button {
+  flex: 0 0 auto;
+  align-self: center;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 8px 0 0;
+  padding: 8px 14px;
+  border: 1px solid #0b7a3b;
+  border-radius: 24px;
+  background: #fff;
+  color: #0b7a3b;
+  font: 600 13px/1 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#cv-applied-button:hover {
+  background: #effaf3;
+}
+
+#cv-applied-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Sits at the top of LinkedIn's Applied list. Reads the ids the page already
+   shows and hands them to the local server, so the ledger learns what was
+   actually sent without the operator re-entering anything. */
+#cv-reconcile-button.cv-reconcile {
+  display: inline-flex;
+  align-items: center;
+  margin: 8px 0;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 24px;
+  background: #0a66c2;
+  color: #fff;
+  font: 600 13px/1 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  cursor: pointer;
+}
+
+#cv-reconcile-button.cv-reconcile:hover {
+  background: #004182;
+}
+
+#cv-reconcile-button:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
 #cv-capture-toast {
   position: fixed;
   right: 24px;

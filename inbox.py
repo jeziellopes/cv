@@ -67,6 +67,8 @@ class Capture:
     description: str
     captured_at: str
     status: str = "new"
+    # The company's own application link, when the job is not Easy Apply.
+    apply_url: str = ""
 
     @property
     def path(self) -> str:
@@ -115,27 +117,33 @@ def save_capture(payload: dict, base_dir: Optional[Path] = None) -> Capture:
     company = str(payload["company"]).strip()
     slug = _free_slug(slugify(company), base_dir)
 
+    title = str(payload.get("title", "")).strip()
+    location = str(payload.get("location", "")).strip()
+    url = str(payload.get("url", "")).strip()
+    description = str(payload.get("description", "")).strip()
+
+    # Only a real link is kept, so a stray string cannot land in the JD file.
+    apply_url = str(payload.get("apply_url", "")).strip()
+    if not re.match(r"^https?://", apply_url, re.I):
+        apply_url = ""
+
+    header = [title, company, location, url]
+    if apply_url:
+        header.append(f"apply: {apply_url}")
+
     out = base_dir / "companies" / slug / "description.md"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(
-        "{title}\n{company}\n{location}\n{url}\n\n{description}\n".format(
-            title=str(payload.get("title", "")).strip(),
-            company=company,
-            location=str(payload.get("location", "")).strip(),
-            url=str(payload.get("url", "")).strip(),
-            description=str(payload.get("description", "")).strip(),
-        ),
-        encoding="utf-8",
-    )
+    out.write_text("\n".join(header) + f"\n\n{description}\n", encoding="utf-8")
 
     capture = Capture(
         slug=slug,
         company=company,
-        title=str(payload.get("title", "")).strip(),
-        location=str(payload.get("location", "")).strip(),
-        url=str(payload.get("url", "")).strip(),
-        description=str(payload.get("description", "")).strip(),
+        title=title,
+        location=location,
+        url=url,
+        description=description,
         captured_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        apply_url=apply_url,
     )
     # The JD lives in companies/<slug>/description.md. Keeping a second copy in
     # the ledger duplicated it and went stale the moment the file was edited.

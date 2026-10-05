@@ -15,22 +15,44 @@ afterwards, because it needs the operator's answers.
 
 ## Use
 
-Open a LinkedIn job. A blue button appears bottom-right. Click it. The toast
-reports the path that was written, for example `companies/acme/description.md`.
+Open a LinkedIn job. The button in the job header shows where that job already
+is in the pipeline, so a job you have already handled is never captured twice:
+
+| Button | Meaning | Click |
+| --- | --- | --- |
+| **Apply with CV** | not captured yet | captures the JD |
+| **CV pending** | captured, no CV yet | re-captures, syncing the JD |
+| **CV ready** | a tailored CV exists | opens the company apply link, and a **Mark applied** control appears next to it |
+| **Applied** | the application went out | nothing |
 
 Then, in the repo:
 
 ```
-cv inbox list     # what is queued
-cv inbox next     # the path of the oldest unprocessed capture
-cv inbox done acme
+cv inbox list --all    # every capture with its step
+cv inbox next          # the path of the oldest capture with no CV
+cv inbox applied acme  # record that this one was sent
 ```
+
+The toolbar popup is the panel: the 25 most recent captures, newest first, each
+with its step and its Job and Apply links, and a **Mark applied** control.
+
+Steps are derived by the local server rather than stored: `captured` until a
+`cv-*.json` exists (`cv-ready`), then `applied` once recorded. Nothing has to be
+kept in sync, so regenerating or deleting a CV moves the step on its own.
+
+## Reconciling with LinkedIn's Applied list
+
+The ledger records that a CV was written, never that an application was sent.
+LinkedIn does know, on **My Jobs -> Applied**, so that page gets a **Reconcile
+with the CV ledger** button. It reads the job ids the page already shows and
+marks each matching capture applied. Open the Applied list, click it once.
 
 ## Why a button and not a scraper
 
 The operator browses and chooses. Nothing here reads LinkedIn in the
 background, follows links, or pages through results, so the extension is a
-one-click hand-off rather than automation.
+one-click hand-off rather than automation. The Applied list is read only when
+the operator clicks reconcile on it.
 
 ## When it says it could not read the job
 

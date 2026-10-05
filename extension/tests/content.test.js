@@ -55,6 +55,11 @@ function makeEl(tag, attrs = {}, text = "") {
         : null;
     },
   };
+  Object.defineProperty(el, "href", {
+    get() {
+      return this.attrs.href || "";
+    },
+  });
   Object.defineProperty(el, "className", {
     get() {
       return this.attrs.class || "";
@@ -133,7 +138,7 @@ function matches(el, sel) {
   return el.tagName === sel.toUpperCase();
 }
 
-function run({ url, title = "", nodes = [], metas = {}, scripts = [] }) {
+function run({ url, title = "", nodes = [], metas = {}, scripts = [], responses = {} }) {
   const body = makeEl("body");
   const pool = [...nodes];
   const created = [];
@@ -157,7 +162,10 @@ function run({ url, title = "", nodes = [], metas = {}, scripts = [] }) {
       if (sel.includes("ld+json")) return scripts.map((s) => makeEl("script", {}, s));
       return pool.filter((el) => matches(el, sel));
     },
-    getElementById: (id) => body.children.find((c) => c.attrs.id === id) || null,
+    getElementById: (id) =>
+      body.children.find((c) => c.attrs.id === id) ||
+      created.find((c) => c.attrs.id === id) ||
+      null,
   };
 
   const location = {
@@ -171,6 +179,9 @@ function run({ url, title = "", nodes = [], metas = {}, scripts = [] }) {
   const sandbox = {
     document,
     location,
+    // A vm context has no web globals; the content script relies on URL.
+    URL,
+    URLSearchParams,
     console: {
       log: (...a) => logs.push(a.map(String).join(" ")),
       error: () => {},
@@ -185,6 +196,8 @@ function run({ url, title = "", nodes = [], metas = {}, scripts = [] }) {
       runtime: {
         sendMessage: async (msg) => {
           sent.push(msg);
+          const custom = responses[msg.type];
+          if (custom) return custom;
           return { ok: true, path: "companies/rotik/description.md" };
         },
       },
@@ -196,7 +209,7 @@ function run({ url, title = "", nodes = [], metas = {}, scripts = [] }) {
   vm.runInContext(SRC, sandbox);
   // The button may be nested in the action bar rather than appended to body.
   const button = created.find((c) => c.attrs.id === "cv-capture-button") || null;
-  return { button, logs, sent };
+  return { button, created, logs, sent };
 }
 
 const JOB_URL =
@@ -210,8 +223,15 @@ const actionBar = makeEl("div", { class: "ckya1x ckyipj ckyjp7" });
 const applyWrapper = actionBar.appendChild(
   makeEl("div", { class: "ckya49 ckyguo ckyhqg ckymt4" })
 );
-applyWrapper.appendChild(
-  makeEl("a", { "aria-label": "Apply on company website" }, "Apply")
+// The Apply control for a non-Easy-Apply job: an anchor whose target LinkedIn
+// wraps in its own redirect.
+const EXTERNAL_APPLY = "https://rotik.inhire.app/vagas/28ca3bb0/pessoa-desenvolvedora-full-stack?source=linkedin";
+const safetyHref =
+  "https://www.linkedin.com/safety/go?url=" +
+  encodeURIComponent(EXTERNAL_APPLY) +
+  "&urlhash=7QcK&mt=abc&isSdui=true";
+const applyAnchor = applyWrapper.appendChild(
+  makeEl("a", { "aria-label": "Apply on company website", href: safetyHref }, "Apply")
 );
 const saveWrapper = actionBar.appendChild(
   makeEl("div", { class: "ckya49 ckyguo ckyhqg ckymt4" })
@@ -236,6 +256,7 @@ const REAL_PAGE = {
       "Requisitos: TypeScript e testes automatizados. Candidate-se"),
     actionBar,
     applyWrapper,
+    applyAnchor,
     saveWrapper,
     saveControl,
   ],
@@ -291,6 +312,27 @@ async function clickCapture(button) {
   check("builds the canonical job url",
     payload.url === "https://www.linkedin.com/jobs/view/4385917440/",
     payload.url);
+  check("captures the company apply link behind LinkedIn's redirect",
+    payload.apply_url === EXTERNAL_APPLY,
+    JSON.stringify(payload.apply_url));
+
+  // Easy Apply has no external link, so there must be no apply_url.
+  r = run({
+    url: JOB_URL,
+    title: "Pessoa Desenvolvedora Full Stack | Rotik | LinkedIn",
+    nodes: [
+      makeEl("button", { "aria-label": "Easy Apply" }, "Easy Apply"),
+      makeEl("div", { "data-sdui-screen": "x.jobs.SemanticJobDetails" },
+        "Sobre a vaga " + "Requisitos: Laravel, React. ".repeat(4)),
+      makeEl("a", { href: "https://www.linkedin.com/jobs/view/4385917440/" },
+        "Pessoa Desenvolvedora Full Stack"),
+      makeEl("img", { "aria-label": "Company logo for, Rotik." }),
+    ],
+  });
+  await clickCapture(r.button);
+  const easy = (r.sent.find((m) => m.type === "capture") || {}).payload || {};
+  check("leaves apply_url empty for Easy Apply",
+    easy.apply_url === "", JSON.stringify(easy.apply_url));
 
   // LinkedIn appends page chrome after the JD; it must not leak into the JD.
   r = run({
@@ -355,6 +397,95 @@ async function clickCapture(button) {
   check("sends a diagnosis instead", Boolean(diag), "no diagnose sent");
   check("the diagnosis is small enough to keep",
     diag && typeof diag.payload.domSample === "string", "no domSample");
+
+  // ---- step awareness ------------------------------------------------------
+
+  // The server answers a jobState lookup a moment after the button is drawn, so
+  // these flush the microtask queue before asserting.
+  const flush = async () => {
+    await new Promise((resolve) => setImmediate(resolve));
+  };
+  const jobNodes = [
+    makeEl("img", { "aria-label": "Company logo for, Rotik." }),
+    makeEl("a", { href: "https://www.linkedin.com/jobs/view/4385917440/" },
+      "Pessoa Desenvolvedora Full Stack"),
+    makeEl("div", { "data-sdui-screen": "x.jobs.SemanticJobDetails" },
+      "Sobre a vaga " + "Requisitos: React e NestJS. ".repeat(4)),
+  ];
+  const jobPage = (job) => run({
+    url: JOB_URL,
+    title: "Pessoa Desenvolvedora Full Stack | Rotik | LinkedIn",
+    nodes: jobNodes,
+    responses: { jobState: { ok: true, job } },
+  });
+
+  r = jobPage({ slug: "rotik", step: "cv-ready", apply_url: "https://rotik.example/apply" });
+  await flush();
+  await flush();
+  check("shows the step the capture has reached",
+    r.button && r.button.textContent === "CV ready",
+    r.button && r.button.textContent);
+  check("offers to record the application once a CV exists",
+    Boolean(r.created.find((c) => c.attrs.id === "cv-applied-button")),
+    "no mark-applied control");
+
+  r = jobPage({ slug: "rotik", step: "applied" });
+  await flush();
+  await flush();
+  check("shows an applied posting as applied",
+    r.button && r.button.textContent === "Applied",
+    r.button && r.button.textContent);
+  check("disables the button once applied",
+    r.button && r.button.disabled === true, "button still enabled");
+
+  r = jobPage(null);
+  await flush();
+  await flush();
+  check("keeps the capture action for a job the ledger does not know",
+    r.button && r.button.textContent === "Apply with CV",
+    r.button && r.button.textContent);
+
+  r = jobPage({ slug: "rotik", step: "skipped" });
+  await flush();
+  await flush();
+  check("shows a posting passed over on purpose",
+    r.button && r.button.textContent === "Skipped",
+    r.button && r.button.textContent);
+  check("offers no mark-applied control on a skipped posting",
+    !r.created.find((c) => c.attrs.id === "cv-applied-button"),
+    "a mark-applied control appeared");
+
+  // ---- reconciling with LinkedIn's Applied list ---------------------------
+
+  const appliedPage = () => run({
+    url: "https://www.linkedin.com/my-items/saved-jobs/?cardType=APPLIED",
+    nodes: [
+      makeEl("a", { href: "https://www.linkedin.com/jobs/view/111/" }, "Applied one"),
+      makeEl("a", { href: "https://www.linkedin.com/jobs/view/222/" }, "Applied two"),
+    ],
+    responses: { reconcile: { ok: true, count: 1, applied: ["rotik"] } },
+  });
+
+  r = appliedPage();
+  const reconcile = r.created.find((c) => c.attrs.id === "cv-reconcile-button");
+  check("offers a reconcile control on the applied list",
+    Boolean(reconcile), "no reconcile control");
+  if (reconcile) {
+    await reconcile._listeners.click();
+    await flush();
+  }
+  const rec = r.sent.find((m) => m.type === "reconcile");
+  check("sends the job ids it found on the applied list",
+    Boolean(rec) && rec.ids.includes("111") && rec.ids.includes("222"),
+    JSON.stringify(rec && rec.ids));
+
+  r = run({
+    url: FEED_URL,
+    nodes: [makeEl("a", { href: "https://www.linkedin.com/jobs/view/111/" }, "x")],
+  });
+  check("does not reconcile off the applied list",
+    !r.created.find((c) => c.attrs.id === "cv-reconcile-button"),
+    "reconcile control injected on the feed");
 
   for (const { label, ok, detail } of results) {
     console.log(`${ok ? "ok  " : "FAIL"}  ${label}${ok ? "" : `  <- ${detail}`}`);
