@@ -14,9 +14,13 @@ positives: "elasticsearch" in a doc proposing its removal, "cypress" in the ATS
 scorer's own keyword list, "terraform" in landing-page copy, "elastic" in a
 comment naming an example system.
 
+Both roots matter. Work split across ~/lab and ~/work is invisible to a scan
+of either alone, which is how a whole employer codebase was reported missing.
+
 Usage:
-    python3 evidence_scan.py --root ~/lab
-    python3 evidence_scan.py --root ~/lab --probes mongodb jwt
+    python3 evidence_scan.py
+    python3 evidence_scan.py --probes mongodb jwt
+    python3 evidence_scan.py --root ~/work --repo sic
     python3 evidence_scan.py --author "A. Person"     # count someone else's commits
 """
 
@@ -107,12 +111,15 @@ def scan_repo(repo: Path, probes, author: str = ""):
     return hits
 
 
-def find_repos(root: Path):
-    for gitdir in root.rglob(".git"):
-        repo = gitdir.parent if gitdir.is_dir() else gitdir
-        if any(part in repo.parts for part in NOISE_DIRS):
+def find_repos(roots):
+    for root in roots:
+        if not root.is_dir():
             continue
-        yield repo
+        for gitdir in root.rglob(".git"):
+            repo = gitdir.parent if gitdir.is_dir() else gitdir
+            if any(part in repo.parts for part in NOISE_DIRS):
+                continue
+            yield repo
 
 
 def git_config_author() -> str:
@@ -126,7 +133,8 @@ def git_config_author() -> str:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--root", default=str(Path.home() / "lab"))
+    ap.add_argument("--root", action="append", default=None,
+                    help="directory to walk, repeatable. Default: ~/lab and ~/work")
     ap.add_argument("--probes", nargs="*", default=None)
     ap.add_argument("--author", default=None,
                     help="git author to filter by (default: this machine's git identity)")
@@ -137,20 +145,24 @@ def main():
     probes = PROBES if not args.probes else {
         k: PROBES[k] for k in args.probes if k in PROBES}
     author = args.author if args.author is not None else git_config_author()
-    root = Path(args.root).expanduser().resolve()
+    roots = ([Path(r).expanduser() for r in args.root] if args.root
+             else [Path.home() / "lab", Path.home() / "work"])
     limit = set(args.repo or [])
 
     found = {}
     scanned = 0
-    for repo in find_repos(root):
+    for repo in find_repos(roots):
         if limit and repo.name not in limit:
             continue
         scanned += 1
         hits = scan_repo(repo, probes, author)
         if hits:
-            found[str(repo.relative_to(root))] = hits
+            label = next((f"{r.name}/{repo.relative_to(r)}" for r in roots
+                          if repo.is_relative_to(r)), str(repo))
+            found[str(label)] = hits
 
-    print(f"scanned {scanned} repos under {root}")
+    print(f"scanned {scanned} repos under "
+          f"{', '.join(str(r) for r in roots)}")
     print(f"author filter: {author or '(none: every commit counts)'}\n")
     for repo, hits in sorted(found.items()):
         print(f"{repo}")
