@@ -56,6 +56,14 @@ def test_capture_is_queued(base):
     assert entries[0]["captured_at"]
 
 
+def test_the_ledger_does_not_duplicate_the_jd(base):
+    """The JD belongs in description.md; a second copy goes stale and bloats."""
+    inbox.save_capture(PAYLOAD, base)
+    entry = inbox.load_ledger()[0]
+    assert "description" not in entry
+    assert (base / "companies" / entry["slug"] / "description.md").is_file()
+
+
 def test_missing_company_or_title_is_rejected(base):
     with pytest.raises(ValueError, match="required"):
         inbox.save_capture({"company": "Acme"}, base)
@@ -100,3 +108,20 @@ def test_ledger_survives_corruption(tmp_path, monkeypatch):
     bad.write_text("{ not json")
     monkeypatch.setattr(inbox, "LEDGER", bad)
     assert inbox.load_ledger() == []
+
+
+def test_has_cv_reports_whether_a_capture_is_still_pending(base):
+    """The queue's real question: which captures have no CV yet."""
+    assert inbox.has_cv("acme", base) is False
+
+    folder = base / "companies" / "acme"
+    folder.mkdir(parents=True)
+    (folder / "description.md").write_text("JD only")
+    assert inbox.has_cv("acme", base) is False, "a description is not a CV"
+
+    (folder / "cv-pt.json").write_text("{}")
+    assert inbox.has_cv("acme", base) is True
+
+
+def test_has_cv_is_false_for_an_unknown_slug(base):
+    assert inbox.has_cv("never-captured", base) is False

@@ -137,8 +137,12 @@ def save_capture(payload: dict, base_dir: Optional[Path] = None) -> Capture:
         description=str(payload.get("description", "")).strip(),
         captured_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
     )
+    # The JD lives in companies/<slug>/description.md. Keeping a second copy in
+    # the ledger duplicated it and went stale the moment the file was edited.
+    entry = asdict(capture)
+    entry.pop("description", None)
     entries = load_ledger()
-    entries.append(asdict(capture))
+    entries.append(entry)
     save_ledger(entries)
     return capture
 
@@ -275,18 +279,45 @@ def token_command() -> None:
     typer.echo(get_token())
 
 
+def has_cv(slug: str, base_dir: Optional[Path] = None) -> bool:
+    """Whether a tailored CV exists for a capture yet.
+
+    The ledger records what was captured; this is what tells the queue which
+    captures still need a CV, which is the question the operator actually asks.
+    """
+    base_dir = base_dir or BASE_DIR
+    folder = base_dir / "companies" / slug
+    return bool(list(folder.glob("cv-*.json"))) if folder.is_dir() else False
+
+
 @app.command("list")
-def list_command(all_: bool = typer.Option(False, "--all", help="include processed")) -> None:
-    """Show the capture queue."""
+def list_command(
+    all_: bool = typer.Option(False, "--all", help="include processed captures"),
+    pending: bool = typer.Option(False, "--pending",
+                                 help="only captures with no tailored CV yet"),
+) -> None:
+    """Show the capture queue and which entries still need a CV."""
     entries = load_ledger()
-    if not all_:
+    if not all_ and not pending:
         entries = [e for e in entries if e.get("status") == "new"]
+    if pending:
+        entries = [e for e in entries if not has_cv(e.get("slug", ""))]
+
     if not entries:
         typer.echo("Queue is empty.")
         return
+
+    needs = 0
     for e in entries:
-        typer.echo(f"  [{e.get('status', '?'):4}] {e.get('slug', ''):22} "
-                   f"{e.get('company', '')} - {e.get('title', '')}")
+        slug = e.get("slug", "")
+        ready = has_cv(slug)
+        if not ready:
+            needs += 1
+        typer.echo(
+            f"  [{e.get('status', '?'):4}] {'CV ready' if ready else 'pending '} "
+            f"{slug:22} {e.get('company', '')} - {e.get('title', '')}"
+        )
+    typer.echo(f"\n{len(entries)} captur(es), {needs} still need a CV.")
 
 
 @app.command("next")
