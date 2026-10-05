@@ -92,15 +92,9 @@ def save_ledger(entries: list[dict], path: Optional[Path] = None) -> None:
                     encoding="utf-8")
 
 
-def _free_slug(base: str, base_dir: Path) -> str:
-    """A slug no other capture has taken, so two roles never share a folder."""
-    taken = {e.get("slug") for e in load_ledger()}
-    if base not in taken and not (base_dir / "companies" / base).exists():
-        return base
-    n = 2
-    while f"{base}-{n}" in taken or (base_dir / "companies" / f"{base}-{n}").exists():
-        n += 1
-    return f"{base}-{n}"
+def _role_slug(title: str) -> str:
+    """A short folder name for a role, from its job title."""
+    return slugify(title)[:40].strip("-") or "role"
 
 
 def save_capture(payload: dict, base_dir: Optional[Path] = None) -> Capture:
@@ -115,7 +109,6 @@ def save_capture(payload: dict, base_dir: Optional[Path] = None) -> Capture:
         raise ValueError(f"missing required field(s): {', '.join(missing)}")
 
     company = str(payload["company"]).strip()
-    slug = _free_slug(slugify(company), base_dir)
 
     title = str(payload.get("title", "")).strip()
     location = str(payload.get("location", "")).strip()
@@ -126,6 +119,38 @@ def save_capture(payload: dict, base_dir: Optional[Path] = None) -> Capture:
     apply_url = str(payload.get("apply_url", "")).strip()
     if not re.match(r"^https?://", apply_url, re.I):
         apply_url = ""
+
+    # A job already in the ledger keeps its folder and its row, so re-clicking
+    # a posting syncs it instead of minting a second entry.
+    #
+    # Identity is the posting URL, falling back to company and title when a
+    # capture carries no link.
+    entries = load_ledger()
+
+    def is_same_job(entry: dict) -> bool:
+        if url:
+            return entry.get("url") == url
+        return (entry.get("company"), entry.get("title")) == (company, title)
+
+    same_job = next((e for e in entries if is_same_job(e)), None)
+
+    company_slug = slugify(company)
+    if same_job:
+        slug = same_job["slug"]
+    else:
+        # The first role sits at the company folder. A second, different role
+        # nests under it, matching companies/<company>/<role>/ used for CVs.
+        first_segments = {e.get("slug", "").split("/")[0] for e in entries}
+        taken = {e.get("slug", "") for e in entries}
+        if company_slug not in first_segments:
+            slug = company_slug
+        else:
+            role = _role_slug(title)
+            slug = f"{company_slug}/{role}"
+            n = 2
+            while slug in taken or (base_dir / "companies" / slug).exists():
+                slug = f"{company_slug}/{role}-{n}"
+                n += 1
 
     header = [title, company, location, url]
     if apply_url:
@@ -145,12 +170,20 @@ def save_capture(payload: dict, base_dir: Optional[Path] = None) -> Capture:
         captured_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         apply_url=apply_url,
     )
+
     # The JD lives in companies/<slug>/description.md. Keeping a second copy in
     # the ledger duplicated it and went stale the moment the file was edited.
     entry = asdict(capture)
     entry.pop("description", None)
-    entries = load_ledger()
-    entries.append(entry)
+
+    if same_job:
+        # Syncing refreshes the JD and the link; it does not undo the fact that
+        # a CV was already produced for this position.
+        keep_status = same_job.get("status", "new")
+        same_job.update(entry)
+        same_job["status"] = keep_status
+    else:
+        entries.append(entry)
     save_ledger(entries)
     return capture
 
@@ -325,6 +358,10 @@ def list_command(
             f"  [{e.get('status', '?'):4}] {'CV ready' if ready else 'pending '} "
             f"{slug:22} {e.get('company', '')} - {e.get('title', '')}"
         )
+        # The apply link is the reason the capture exists; show it here rather
+        # than leaving it buried in the JD file.
+        if e.get("apply_url"):
+            typer.echo(f"         apply: {e['apply_url']}")
     typer.echo(f"\n{len(entries)} captur(es), {needs} still need a CV.")
 
 
