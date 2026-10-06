@@ -331,6 +331,33 @@ def has_cv(slug: str, base_dir: Optional[Path] = None) -> bool:
     return bool(list(folder.glob("cv-*.json"))) if folder.is_dir() else False
 
 
+def cv_gaps(slug: str, base_dir: Optional[Path] = None) -> Optional[dict[str, list[str]]]:
+    """Skill tags a capture's CVs claim that no repository proves.
+
+    None means the ledger is absent, which is different from a CV with no gaps:
+    one is unknown, the other is clean. Imported lazily so the listener stays
+    stdlib only and cannot fail on the heavier evidence module.
+    """
+    import skills
+
+    ledger = skills.load_gaps()
+    if not ledger:
+        return None
+    folder = (base_dir or BASE_DIR) / "companies" / slug
+    if not folder.is_dir():
+        return {}
+    found: dict[str, list[str]] = {}
+    for cv_file in sorted(folder.glob("cv-*.json")):
+        try:
+            cv = json.loads(cv_file.read_text())
+        except ValueError:
+            continue
+        problems = skills.unproven_in(cv, ledger)
+        if problems:
+            found[cv_file.name] = problems
+    return found
+
+
 @app.command("list")
 def list_command(
     all_: bool = typer.Option(False, "--all", help="include processed captures"),
@@ -452,6 +479,29 @@ def status_command() -> None:
     typer.echo(f"  CV ready         {len(ready)}")
     typer.echo(f"  pending CV       {len(pending)}")
     typer.echo(f"  with apply link  {len(with_link)}")
+
+    # Which CVs carry a claim nothing proves. The ledger may be absent, which is
+    # not the same as clean, so it is reported rather than assumed.
+    gapped: list[tuple[str, dict[str, list[str]]]] = []
+    unknown = False
+    for entry in ready:
+        gaps = cv_gaps(entry.get("slug", ""))
+        if gaps is None:
+            unknown = True
+            break
+        if gaps:
+            gapped.append((entry.get("slug", ""), gaps))
+    if unknown:
+        typer.echo("  CVs with gaps    unknown (run `cv gaps refresh`)")
+    else:
+        typer.echo(f"  CVs with gaps    {len(gapped)}")
+
+    if gapped:
+        typer.echo("\n  CVs claiming a skill no repository proves:")
+        for slug, gaps in gapped:
+            for cv_file, tags in gaps.items():
+                typer.echo(f"    {slug:22} {cv_file}  <- {', '.join(tags)}")
+
     if pending:
         typer.echo("\n  waiting on a CV:")
         for e in pending:

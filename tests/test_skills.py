@@ -196,3 +196,43 @@ def test_prose_manifests_and_locks_cannot(rel):
     # A dependency declared in a manifest, or an option discussed in a spec, is
     # not evidence that the operator built with it.
     assert not skills._is_usage_file(rel)
+
+
+def test_cv_gaps_reports_a_capture_whose_cv_claims_an_unproven_skill(
+        tmp_path, monkeypatch):
+    import inbox
+
+    folder = tmp_path / "companies" / "acme"
+    folder.mkdir(parents=True)
+    (folder / "cv-pt.json").write_text(json.dumps(_cv("React", "DynamoDB")))
+    ledger = tmp_path / "gaps.json"
+    ledger.write_text(json.dumps({"evidence": {"React": ["r"]}}))
+
+    monkeypatch.setattr(skills, "GAPS_FILE", ledger)
+    monkeypatch.setattr(inbox, "BASE_DIR", tmp_path)
+
+    assert inbox.cv_gaps("acme") == {"cv-pt.json": ["DynamoDB"]}
+
+
+def test_cv_gaps_is_none_without_a_ledger(tmp_path, monkeypatch):
+    import inbox
+
+    monkeypatch.setattr(skills, "GAPS_FILE", tmp_path / "missing.json")
+    monkeypatch.setattr(inbox, "BASE_DIR", tmp_path)
+
+    assert inbox.cv_gaps("acme") is None, "absent ledger is unknown, not clean"
+
+
+def test_cv_gaps_is_empty_for_a_clean_cv(tmp_path, monkeypatch):
+    import inbox
+
+    folder = tmp_path / "companies" / "acme"
+    folder.mkdir(parents=True)
+    (folder / "cv-pt.json").write_text(json.dumps(_cv("React")))
+    ledger = tmp_path / "gaps.json"
+    ledger.write_text(json.dumps({"evidence": {"React": ["r"]}}))
+
+    monkeypatch.setattr(skills, "GAPS_FILE", ledger)
+    monkeypatch.setattr(inbox, "BASE_DIR", tmp_path)
+
+    assert inbox.cv_gaps("acme") == {}
