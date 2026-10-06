@@ -143,7 +143,7 @@ def test_linkedin_guest_parsing(mock_transport):
     assert jobs[0].title == "Senior React Developer"
     assert jobs[0].company == "Acme Corp"
     assert jobs[0].location == "Remote"
-    assert jobs[0].url.endswith("/jobs/view/123")
+    assert jobs[0].url == "https://www.linkedin.com/jobs/view/123/"
 
 
 def test_programathor_parsing(mock_transport):
