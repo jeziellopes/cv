@@ -31,6 +31,7 @@ import evidence
 import guards
 import inbox
 import search as searchmod
+import skills
 import staleness
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -85,6 +86,9 @@ app.add_typer(evidence.app)
 # The honesty guards: reproducible figures, and publishable names.
 app.add_typer(guards.claims_app, name="claims")
 app.add_typer(guards.names_app, name="names")
+
+# Which claims a repository backs, and which a posting asks for but nothing does.
+app.add_typer(skills.app, name="gaps")
 
 
 @app.callback(invoke_without_command=True)
@@ -578,6 +582,21 @@ def generate(
 
     with open(cv_path, encoding="utf-8") as f:
         cv = json.load(f)
+
+    # A CV cannot be rendered while it claims a skill nothing proves (ADR 0003).
+    # The requirement is checked before the file is written, so a fabricated tag
+    # has no path to a PDF at all.
+    ledger = skills.load_gaps()
+    unproven = skills.unproven_in(cv, ledger) if ledger else []
+    if unproven:
+        typer.echo(f"✖ refusing to generate: unproven skill(s): {', '.join(unproven)}",
+                   err=True)
+        typer.echo("  build the evidence, drop the tag, or record an allowance in "
+                   "skills.json.", err=True)
+        raise typer.Exit(1)
+    if not ledger:
+        typer.echo("⚠ no gaps.json; skill claims are unchecked until `cv gaps --refresh`.",
+                   err=True)
 
     html_out.write_text(build_html(cv, theme), encoding="utf-8")
     company_info = f", company: {company}" if company else ""

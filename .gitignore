@@ -30,6 +30,13 @@ project-names.json
 # company agnostic and carries no application data of its own.
 claim-evidence.json
 
+# The skill gap ledger: for every skill, which repositories prove it and which
+# postings ask for it. Local only, for the same reason as the two above: the
+# evidence column names proprietary repositories. skills.json, which holds the
+# soft-skill list and probe overrides, is committed because the gate reads it
+# and it names nothing.
+gaps.json
+
 # Python
 __pycache__/
 *.py[cod]
