@@ -44,6 +44,43 @@
       .actions { display: flex; gap: 10px; align-items: center; }
       .actions a { color: #0a66c2; text-decoration: none; font-weight: 600; }
       .actions a:hover { text-decoration: underline; }
+      /* The justification is the operator's own words, so it is a text input
+         on every row rather than a dialog that interrupts the list. */
+      .decline { display: flex; gap: 6px; margin-top: 6px; }
+      .reason-input {
+        flex: 1;
+        min-width: 0;
+        padding: 5px 8px;
+        border: 1px solid #c9c9c9;
+        border-radius: 6px;
+        font: 12px inherit;
+      }
+      .decline-button {
+        flex: 0 0 auto;
+        padding: 5px 10px;
+        border: 1px solid #6b3f3f;
+        border-radius: 6px;
+        background: #fff;
+        color: #6b3f3f;
+        font: 600 12px inherit;
+        cursor: pointer;
+      }
+      .decline-button:hover { background: #faf0f0; }
+      .reason {
+        margin: 2px 0 4px;
+        font-size: 12px;
+        color: #6b3f3f;
+      }
+      .reconsider {
+        padding: 5px 10px;
+        border: 1px solid #56606b;
+        border-radius: 6px;
+        background: #fff;
+        color: #56606b;
+        font: 600 12px inherit;
+        cursor: pointer;
+      }
+      .reconsider:hover { background: #f2f3f5; }
       button {
         padding: 6px 10px;
         border: 0;

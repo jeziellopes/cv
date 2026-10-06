@@ -37,8 +37,7 @@ DEFAULT_PORT = 8787
 
 # What a capture must carry for a tailored CV to be possible at all.
 REQUIRED = ("company", "title")
-MAX_BODY = 2_000_000
-# A DOM sample is legitimate here and large: it is how a broken selector gets
+MAX_BODY = 2_000_000# A DOM sample is legitimate here and large: it is how a broken selector gets
 # fixed without another round trip through the browser.
 MAX_DIAGNOSE = 6_000_000
 
@@ -272,7 +271,8 @@ def make_handler(token: str, base_dir: Path):
             self._send(404, {"ok": False, "error": "not found"})
 
         def do_POST(self) -> None:  # noqa: N802
-            if self.path not in ("/capture", "/diagnose", "/applied", "/reconcile"):
+            if self.path not in ("/capture", "/diagnose", "/applied", "/reconcile",
+                                 "/skip", "/reconsider"):
                 self._send(404, {"ok": False, "error": "not found"})
                 return
             if not self._authorized():
@@ -318,6 +318,22 @@ def make_handler(token: str, base_dir: Path):
                 applied = reconcile(ids, base_dir)
                 self._send(200, {"ok": True, "applied": applied,
                                  "count": len(applied)})
+                return
+
+            if self.path in ("/skip", "/reconsider"):
+                identifier = (payload.get("slug") or payload.get("url") or "")
+                if self.path == "/skip":
+                    slug = mark_skipped(identifier, str(payload.get("reason") or ""),
+                                        base_dir)
+                    step = "skipped"
+                else:
+                    slug = mark_reconsidered(identifier, base_dir)
+                    step = "captured"
+                if not slug:
+                    self._send(404, {"ok": False, "code": E_NO_CAPTURE,
+                                     "error": "no such capture"})
+                    return
+                self._send(200, {"ok": True, "slug": slug, "step": step})
                 return
 
             try:
@@ -408,6 +424,9 @@ STEPS = ("captured", "cv-ready", "applied", "skipped")
 _APPLIED = {"applied"}
 _SKIPPED = {"skipped", "rejected", "declined"}
 
+# Returned in `code` so a caller branches on the identity, never on the message.
+E_NO_CAPTURE = "E_NO_CAPTURE"
+
 
 def step_of(slug: str, entry: dict, base_dir: Optional[Path] = None) -> str:
     """Which step a capture has reached.
@@ -448,6 +467,7 @@ def job_view(entry: dict, base_dir: Optional[Path] = None) -> dict:
         "apply_url": entry.get("apply_url", ""),
         "captured_at": entry.get("captured_at", ""),
         "step": step_of(slug, entry, base_dir),
+        "reason": entry.get("skip_reason", ""),
     }
 
 
@@ -512,6 +532,22 @@ def mark_skipped(identifier: str, reason: str = "",
                 timespec="seconds")
             if reason:
                 candidate["skip_reason"] = reason
+    save_ledger(entries)
+    return entry.get("slug")
+
+
+def mark_reconsidered(identifier: str, base_dir: Optional[Path] = None
+                      ) -> Optional[str]:
+    """Return a declined posting to captured, dropping the reason with it."""
+    entry = job_for(identifier, base_dir)
+    if not entry:
+        return None
+    entries = load_ledger()
+    for candidate in entries:
+        if candidate.get("slug") == entry.get("slug"):
+            candidate["status"] = "new"
+            candidate.pop("skip_reason", None)
+            candidate.pop("skipped_at", None)
     save_ledger(entries)
     return entry.get("slug")
 
@@ -598,6 +634,16 @@ def skip_command(
         typer.echo(f"No capture matching {identifier}.", err=True)
         raise typer.Exit(code=1)
     typer.echo(f"{slug} skipped." + (f"  ({reason})" if reason else ""))
+
+
+@app.command("reconsider")
+def reconsider_command(identifier: str) -> None:
+    """Return a declined posting to captured, dropping the reason."""
+    slug = mark_reconsidered(identifier)
+    if not slug:
+        typer.echo(f"No capture matching {identifier}.", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"{slug} reconsidered.")
 
 
 def find_entry(slug: str) -> Optional[dict]:

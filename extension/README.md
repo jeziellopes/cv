@@ -36,6 +36,12 @@ cv inbox applied acme  # record that this one was sent
 The toolbar popup is the panel: the 25 most recent captures, newest first, each
 with its step and its Job and Apply links, and a **Mark applied** control.
 
+Each row also has a **Decline** field: type why you are passing on a posting, in
+your own words, and it is recorded with the step. A declined posting shows the
+reason and a **Reconsider** control, so a judgement made in a hurry can be taken
+back. The reason is yours to write; the CLI accepts one too,
+`cv inbox skip <slug> -r "why"`, and `cv inbox reconsider <slug>` reverses it.
+
 Steps are derived by the local server rather than stored: `captured` until a
 `cv-*.json` exists (`cv-ready`), then `applied` once recorded. Nothing has to be
 kept in sync, so regenerating or deleting a CV moves the step on its own.

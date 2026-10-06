@@ -69,6 +69,28 @@ async function markApplied(slug) {
   renderJobs();
 }
 
+// A decline carries a justification the operator writes, and it is reversible:
+// a judgement made in a hurry is one you can take back.
+async function decline(slug, reason) {
+  const res = await send({ type: "skip", payload: { slug, reason: (reason || "").trim() } });
+  if (!res || !res.ok) {
+    setStatus((res && res.error) || "Could not decline.", "err");
+    return;
+  }
+  setStatus(`${slug} declined.`, "ok");
+  renderJobs();
+}
+
+async function reconsider(slug) {
+  const res = await send({ type: "reconsider", payload: { slug } });
+  if (!res || !res.ok) {
+    setStatus((res && res.error) || "Could not reconsider.", "err");
+    return;
+  }
+  setStatus(`${slug} reconsidered.`, "ok");
+  renderJobs();
+}
+
 function jobRow(job) {
   const row = document.createElement("div");
   row.className = "job";
@@ -100,6 +122,36 @@ function jobRow(job) {
   }
 
   row.append(head, slug, actions);
+
+  if (job.step === "skipped") {
+    const reason = document.createElement("p");
+    reason.className = "reason";
+    reason.textContent = job.reason
+      ? `Declined: ${job.reason}`
+      : "Declined, no reason given";
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "reconsider";
+    back.textContent = "Reconsider";
+    back.addEventListener("click", () => reconsider(job.slug));
+    row.append(reason, back);
+  } else {
+    const form = document.createElement("div");
+    form.className = "decline";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "reason-input";
+    input.placeholder = "Why not? (your words)";
+    input.spellcheck = true;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "decline-button";
+    button.textContent = "Decline";
+    button.addEventListener("click", () => decline(job.slug, input.value));
+    form.append(input, button);
+    row.append(form);
+  }
+
   return row;
 }
 

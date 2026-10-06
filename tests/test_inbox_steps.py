@@ -230,3 +230,56 @@ def test_reconcile_rejects_a_non_list(server):
     base, token, _ = server
     status, _ = _call("POST", base + "/reconcile", {"ids": "999"}, token)
     assert status == 422
+
+
+def test_reconsider_returns_a_declined_capture_to_captured(base):
+    capture = inbox.save_capture(PAYLOAD, base)
+    inbox.mark_skipped(capture.slug, "not a fit", base)
+    assert inbox.mark_reconsidered(capture.slug, base) == "projuris"
+    entry = inbox.load_ledger()[0]
+    assert inbox.step_of(capture.slug, entry, base) == "captured"
+    assert "skip_reason" not in entry
+    assert "skipped_at" not in entry
+
+
+def test_reconsider_leaves_a_capture_that_was_not_declined(base):
+    capture = inbox.save_capture(PAYLOAD, base)
+    assert inbox.mark_reconsidered(capture.slug, base) == "projuris"
+    entry = inbox.load_ledger()[0]
+    assert inbox.step_of(capture.slug, entry, base) == "captured"
+    assert "skip_reason" not in entry
+
+
+def test_a_decline_carries_its_reason_into_the_job_view(base):
+    capture = inbox.save_capture(PAYLOAD, base)
+    inbox.mark_skipped(capture.slug, "stack is all Java", base)
+    assert inbox.jobs(base)[0]["reason"] == "stack is all Java"
+
+
+def test_skip_endpoint_stores_the_reason(server):
+    base, token, _ = server
+    _call("POST", base + "/capture", PAYLOAD, token)
+    status, body = _call("POST", base + "/skip",
+                         {"slug": "projuris", "reason": "no remote"}, token)
+    assert status == 200 and body["step"] == "skipped"
+    _, feed = _call("GET", base + "/jobs", token=token)
+    assert feed["jobs"][0]["step"] == "skipped"
+    assert feed["jobs"][0]["reason"] == "no remote"
+
+
+def test_reconsider_endpoint_clears_the_reason(server):
+    base, token, _ = server
+    _call("POST", base + "/capture", PAYLOAD, token)
+    _call("POST", base + "/skip", {"slug": "projuris", "reason": "no remote"}, token)
+    status, body = _call("POST", base + "/reconsider", {"slug": "projuris"}, token)
+    assert status == 200 and body["step"] == "captured"
+    _, feed = _call("GET", base + "/jobs", token=token)
+    assert feed["jobs"][0]["step"] == "captured"
+    assert feed["jobs"][0]["reason"] == ""
+
+
+def test_skip_endpoint_rejects_an_unknown_slug(server):
+    base, token, _ = server
+    status, body = _call("POST", base + "/skip",
+                         {"slug": "nope", "reason": "x"}, token)
+    assert status == 404 and body["code"] == inbox.E_NO_CAPTURE
