@@ -8,6 +8,7 @@ import json
 import threading
 import urllib.error
 import urllib.request
+from datetime import datetime
 from http.server import ThreadingHTTPServer
 
 import pytest
@@ -243,11 +244,31 @@ def test_reconsider_returns_a_declined_capture_to_captured(base):
 
 
 def test_reconsider_leaves_a_capture_that_was_not_declined(base):
-    capture = inbox.save_capture(PAYLOAD, base)
-    assert inbox.mark_reconsidered(capture.slug, base) == "projuris"
+    inbox.save_capture(PAYLOAD, base)
+    with pytest.raises(inbox.StepTransitionError):
+        inbox.mark_reconsidered("projuris", base)
     entry = inbox.load_ledger()[0]
-    assert inbox.step_of(capture.slug, entry, base) == "captured"
+    assert inbox.step_of("projuris", entry, base) == "captured"
     assert "skip_reason" not in entry
+
+
+def test_mark_skipped_refuses_an_applied_capture(base):
+    inbox.save_capture(PAYLOAD, base)
+    inbox.mark_applied("projuris", base)
+    with pytest.raises(inbox.StepTransitionError) as caught:
+        inbox.mark_skipped("projuris", "changed my mind", base)
+    assert caught.value.identity == inbox.E_ALREADY_APPLIED
+    assert inbox.jobs(base)[0]["step"] == "applied"
+
+
+def test_jd_date_reads_the_description_file_date(base):
+    inbox.save_capture(PAYLOAD, base)
+    jd = base / "companies" / "projuris" / "description.md"
+    jd.parent.mkdir(parents=True, exist_ok=True)
+    jd.write_text("x")
+    expected = datetime.fromtimestamp(jd.stat().st_mtime).date().isoformat()
+    assert inbox.jd_date("projuris", base) == expected
+    assert inbox.jd_date("missing", base) == ""
 
 
 def test_a_decline_carries_its_reason_into_the_job_view(base):
@@ -283,3 +304,19 @@ def test_skip_endpoint_rejects_an_unknown_slug(server):
     status, body = _call("POST", base + "/skip",
                          {"slug": "nope", "reason": "x"}, token)
     assert status == 404 and body["code"] == inbox.E_NO_CAPTURE
+
+
+def test_skip_endpoint_refuses_an_applied_capture(server):
+    base, token, _ = server
+    _call("POST", base + "/capture", PAYLOAD, token)
+    _call("POST", base + "/applied", {"slug": "projuris"}, token)
+    status, body = _call("POST", base + "/skip",
+                         {"slug": "projuris", "reason": "no"}, token)
+    assert status == 409 and body["code"] == inbox.E_ALREADY_APPLIED
+
+
+def test_reconsider_endpoint_refuses_a_capture_that_was_not_declined(server):
+    base, token, _ = server
+    _call("POST", base + "/capture", PAYLOAD, token)
+    status, body = _call("POST", base + "/reconsider", {"slug": "projuris"}, token)
+    assert status == 409 and body["code"] == inbox.E_NOT_SKIPPED
