@@ -18,5 +18,12 @@ dependencies = [
 [project.scripts]
 cv = "generate:main"
 
+[project.optional-dependencies]
+# The mailbox reader is optional: nothing else imports it, and inbox.py keeps its
+# command a lazy import so the stdlib-only listener never needs these.
+mailbox = [
+    "google-auth-oauthlib>=1.2.0",
+]
+
 [tool.setuptools]
-py-modules = ["generate", "ats", "search", "inbox", "evidence", "guards", "skills", "staleness"]
+py-modules = ["generate", "ats", "search", "inbox", "evidence", "guards", "skills", "mailscan", "staleness"]

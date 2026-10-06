@@ -570,6 +570,22 @@ def applied_command(identifier: str) -> None:
     typer.echo(f"{slug} marked applied.")
 
 
+@app.command("mail")
+def mail_command(
+    query: Optional[str] = typer.Option(None, "--query", "-q",
+                                        help="Gmail search; defaults to confirmation subjects"),
+    apply: bool = typer.Option(False, "--apply",
+                               help="write the matches; dry run otherwise"),
+    limit: int = typer.Option(50, "--limit", help="maximum messages to read"),
+    all_: bool = typer.Option(False, "--all", "-a",
+                              help="also list already-applied and unmatched confirmations"),
+) -> None:
+    """Record applied from application confirmations in Gmail."""
+    import mailscan
+
+    mailscan.run(query=query, apply=apply, limit=limit, show_all=all_)
+
+
 @app.command("skip")
 def skip_command(
     identifier: str,
