@@ -15,6 +15,7 @@ import re
 import unicodedata
 import urllib.parse
 import urllib.request
+import html as _html
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -57,6 +58,7 @@ class Job:
     description: str
     source: str
     tags: list[str] = field(default_factory=list)
+    posted: str = ""
 
 
 @dataclass
@@ -108,7 +110,7 @@ def _matches(query: str, text: str) -> bool:
 
 # ---- sources ----------------------------------------------
 
-def _remotive(query: str, cap: int) -> list[Job]:
+def _remotive(query: str, cap: int, **_) -> list[Job]:
     url = "https://remotive.com/api/remote-jobs?search=" + urllib.parse.quote(query)
     data = _get_json(url)
     jobs = []
@@ -127,7 +129,7 @@ def _remotive(query: str, cap: int) -> list[Job]:
     return jobs[:cap]
 
 
-def _remoteok(query: str, cap: int) -> list[Job]:
+def _remoteok(query: str, cap: int, **_) -> list[Job]:
     data = _get_json("https://remoteok.com/api")
     jobs = []
     for entry in data:
@@ -151,43 +153,154 @@ def _remoteok(query: str, cap: int) -> list[Job]:
     return jobs[:cap]
 
 
-def _linkedin(query: str, cap: int) -> list[Job]:
+LINKEDIN_SEARCH = (
+    "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search")
+
+# What --since maps to. LinkedIn ignores f_E and f_WT, so they are not offered:
+# an option that silently does nothing is worse than no option.
+SINCE = {"24h": "r86400", "week": "r604800", "month": "r2592000"}
+LINKEDIN_PAGE = 25        # documented increment, though a page returns about 10
+LINKEDIN_MAX_PAGES = 4    # bounds the requests a single search can make
+
+
+def _linkedin(query: str, cap: int, since: str = "", location: str = "",
+              remote: bool = False, **_) -> list[Job]:
     """Best-effort LinkedIn guest search. May be blocked; the extension path
-    (--import) is the robust replacement."""
-    url = (
-        "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
-        "?keywords=" + urllib.parse.quote(query) + "&f_WT=2"
-    )
-    html = _get_text(url)
-    jobs = []
-    for card in re.split(r"(?=<li)", html):
-        href_m = re.search(r'href="([^"]*/jobs/view/[0-9]+[^"]*)"', card)
-        if not href_m:
-            continue
-        def strip(s):
-            return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", s or "")).strip()
-        title_m = re.search(r"base-search-card__title.*?>(.*?)</a>", card, re.S)
-        company_m = re.search(r"base-search-card__subtitle.*?>(.*?)</a>", card, re.S)
-        location_m = re.search(r"job-search-card__location.*?>(.*?)</span>", card, re.S)
-        jobs.append(
-            Job(
-                title=strip(title_m.group(1)) if title_m else "",
-                company=strip(company_m.group(1)) if company_m else "",
-                location=strip(location_m.group(1)) if location_m else "",
-                url=href_m.group(1),
-                description="",
-                source="linkedin",
+    (--import) is the robust replacement.
+
+    The card href is `/jobs/view/<slug>-<id>`, so the id comes from the card's
+    own urn rather than from the href. A page holds about ten cards and `start`
+    advances by 25, so the pages are walked until the cap is met, and the walk
+    stops as soon as a page adds nothing new.
+    """
+    if since and since not in SINCE:
+        raise ValueError(f"unknown --since '{since}'; use {', '.join(SINCE)}")
+
+    jobs: list[Job] = []
+    seen: set[str] = set()
+    for page in range(LINKEDIN_MAX_PAGES):
+        params = {"keywords": query, "start": str(page * LINKEDIN_PAGE)}
+        if since:
+            params["f_TPR"] = SINCE[since]
+        if location:
+            params["location"] = location
+        if remote:
+            params["f_WT"] = "2"
+        html = _get_text(LINKEDIN_SEARCH + "?" + urllib.parse.urlencode(params))
+
+        added = 0
+        for card in re.split(r"(?=<li)", html):
+            urn = re.search(r'data-entity-urn="urn:li:jobPosting:(\d+)"', card)
+            href = re.search(r'href="(https://[^"?]*/jobs/view/[^"?]+)', card)
+            if not urn and not href:
+                continue
+            job_id = urn.group(1) if urn else _linkedin_id(
+                href.group(1) if href else "")
+            if not job_id or job_id in seen:
+                continue
+            seen.add(job_id)
+            added += 1
+
+            def strip(s):
+                return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", s or "")).strip()
+
+            def pick(pattern):
+                match = re.search(pattern, card, re.S)
+                return strip(match.group(1)) if match else ""
+
+            match = re.search(r'job-search-card__listdate[^>]*datetime="([^"]+)"', card)
+            posted = match.group(1) if match else ""
+            jobs.append(
+                Job(
+                    title=pick(r"base-search-card__title[^>]*>(.*?)</h[34]>"),
+                    company=pick(r"base-search-card__subtitle[^>]*>(.*?)</a>"),
+                    location=pick(r"job-search-card__location[^>]*>(.*?)</span>"),
+                    url=f"https://www.linkedin.com/jobs/view/{job_id}/",
+                    description="",
+                    source="linkedin",
+                    posted=posted,
+                )
             )
-        )
+        if len(jobs) >= cap or added == 0:
+            break
     return jobs[:cap]
 
 
+def _linkedin_id(url: str) -> str:
+    """The posting id from a LinkedIn job URL, which may carry a slug."""
+    match = re.search(r"/jobs/view/(?:[^/]*?-)?(\d+)", str(url or ""))
+    return match.group(1) if match else ""
+
+
+# The description lives in one div, stable across the class renames around it.
+_LINKEDIN_BODY_RE = re.compile(
+    r'<div[^>]*class="[^"]*show-more-less-html__markup[^"]*"[^>]*>(.*?)</div>',
+    re.S)
+
+# What the JD body starts at and where the page's own chrome begins, shared with
+# the other sources that fetch a detail page.
 _DETAIL_START_RE = re.compile(
     r"(requisitos|descri.ão da vaga|sobre a vaga|responsabilidades)", re.I
 )
 _DETAIL_CUT_RE = re.compile(
     r"(candidatar|inscreva-se|enviar curr|como se candidatar|forma de pagamento)", re.I
 )
+
+
+def _clean_detail(html: str) -> str:
+    """A description as text, with its block structure kept as blank lines."""
+    text = re.sub(r"(?i)<br\s*/?>", "\n", html or "")
+    text = re.sub(r"(?i)</(p|li|ul|ol|div|h[1-6])>", "\n", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = _html.unescape(text)
+    text = re.sub(r"[ \t\u00a0]+", " ", text)
+    # An inline tag leaves a space before the punctuation that followed it.
+    text = re.sub(r"\s+([.,;:!?)])", r"\1", text)
+    text = "\n".join(line.strip() for line in text.splitlines())
+    text = re.sub(r"\n\s*\n+", "\n\n", text)
+    return text.strip()
+
+
+def _linkedin_detail(job: Job) -> str:
+    """One posting's description from LinkedIn's guest detail endpoint."""
+    job_id = _linkedin_id(job.url)
+    if not job_id:
+        return ""
+    html = _get_text(
+        "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/" + job_id)
+    match = _LINKEDIN_BODY_RE.search(html)
+    return _clean_detail(match.group(1) if match else "")
+
+
+# Sources whose list response carries no description, and where to get one.
+DETAILS = {"linkedin": _linkedin_detail}
+
+
+def add_details(ranked: list[Ranked]) -> tuple[int, int]:
+    """Fill in the description for the results shown, from their own source.
+
+    Returns (filled, failed). Only the results already chosen are fetched, so the
+    request count is bounded by what the caller asked to see.
+    """
+    filled = 0
+    failed = 0
+    for item in ranked:
+        job = item.job
+        if job.description:
+            continue
+        fetch = DETAILS.get(job.source)
+        if not fetch:
+            continue
+        try:
+            job.description = fetch(job)
+        except Exception:  # noqa: BLE001 - a blocked fetch is a missing field
+            failed += 1
+            continue
+        if job.description:
+            filled += 1
+        else:
+            failed += 1
+    return filled, failed
 
 
 def _programathor_detail(url: str) -> str:
@@ -207,7 +320,7 @@ def _programathor_detail(url: str) -> str:
     return body.strip()[:2000]
 
 
-def _programathor(query: str, cap: int) -> list[Job]:
+def _programathor(query: str, cap: int, **_) -> list[Job]:
     """Programathor: server-rendered Brazilian dev job board. The listing card
     is used to filter cheaply; the detail page supplies the real requirements."""
     html = _get_html("https://programathor.com.br/jobs")
@@ -239,7 +352,7 @@ def _programathor(query: str, cap: int) -> list[Job]:
     return jobs
 
 
-def _gupy(query: str, cap: int) -> list[Job]:
+def _gupy(query: str, cap: int, **_) -> list[Job]:
     """Best-effort Gupy. The public endpoint is frequently blocked or changed;
     when it is, this raises and the CLI reports the source as unreachable."""
     url = (
@@ -279,7 +392,8 @@ def known_sources() -> str:
 def from_file(path: Path) -> list[Job]:
     """Load jobs from a JSON file, e.g. a browser extension export.
 
-    The file is an array of {title, company, location, url, description, tags?}.
+    The file is an array of {title, company, location, url, description, tags?,
+    posted?}.
     """
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     jobs = []
@@ -293,6 +407,7 @@ def from_file(path: Path) -> list[Job]:
                 description=entry.get("description") or "",
                 source=entry.get("source") or "import",
                 tags=list(entry.get("tags") or []),
+                posted=entry.get("posted") or "",
             )
         )
     return jobs

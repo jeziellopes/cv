@@ -924,8 +924,12 @@ def search(
     source: Annotated[str, typer.Option("--source", "-s", help="Job source: programathor, remotive, remoteok, linkedin, gupy")] = "programathor",
     limit: Annotated[int, typer.Option("--limit", "-n", help="Max results to show")] = 10,
     import_file: Annotated[Optional[Path], typer.Option("--import", help="Rank jobs from a JSON file (e.g. a LinkedIn extension export)")] = None,
+    since: Annotated[str, typer.Option("--since", help="Only postings newer than this: 24h, week, month (sources that support it)")] = "",
+    location: Annotated[str, typer.Option("--location", help="Restrict to a place, e.g. Brazil (sources that support it)")] = "",
+    remote: Annotated[bool, typer.Option("--remote", help="Prefer remote postings (best effort; LinkedIn ignores it)")] = False,
     cv_file: Annotated[Optional[Path], typer.Option("--cv", help="Rank against a tailored cv.json instead of the base cv.json")] = None,
     ingest: Annotated[Optional[int], typer.Option("--ingest", help="Write ranked result #N as a JD to companies/<slug>/description.md")] = None,
+    no_detail: Annotated[bool, typer.Option("--no-detail", help="Skip fetching the descriptions of the shown results")] = False,
     as_json: Annotated[bool, typer.Option("--json", help="Emit machine-readable JSON")] = False,
 ):
     """Search job sources and rank the best matches for this CV."""
@@ -939,9 +943,13 @@ def search(
             typer.echo("✖ a query is required unless --import is used", err=True)
             raise typer.Exit(2)
         try:
-            jobs = searchmod.SOURCES[source](query, limit * 5)
+            jobs = searchmod.SOURCES[source](
+                query, limit * 5, since=since, location=location, remote=remote)
         except KeyError:
             typer.echo(f"✖ unknown source '{source}'. Available: {searchmod.known_sources()}", err=True)
+            raise typer.Exit(2)
+        except ValueError as exc:
+            typer.echo(f"✖ {exc}", err=True)
             raise typer.Exit(2)
         except Exception as exc:  # noqa: BLE001
             typer.echo(f"✖ could not reach {source}: {exc}", err=True)
@@ -954,11 +962,20 @@ def search(
         typer.echo("✖ no jobs found for the query", err=True)
         raise typer.Exit(1)
 
+    # Descriptions are fetched only for what is shown, so the request count is
+    # bounded by --limit rather than by how many candidates the source returned.
+    if not no_detail:
+        filled, failed = searchmod.add_details(ranked)
+        if filled:
+            typer.echo(f"fetched {filled} description(s)")
+        if failed:
+            typer.echo(f"⚠ {failed} description(s) could not be fetched", err=True)
+
     if as_json:
         typer.echo(json.dumps([
             {"rank": i, "fit": r.fit, "title": r.job.title, "company": r.job.company,
              "location": r.job.location, "url": r.job.url, "source": r.job.source,
-             "matched": r.matched}
+             "posted": r.job.posted, "matched": r.matched}
             for i, r in enumerate(ranked, 1)
         ], indent=2))
         return
@@ -966,7 +983,9 @@ def search(
     typer.echo(f"Best matches for '{query or import_file}' (fit = query relevance + how well the CV covers the JD)")
     for i, r in enumerate(ranked, 1):
         mark = " *" if ingest == i else ""
-        typer.echo(f"  {i:>2}. {r.fit:>3}%  {r.job.title} @ {r.job.company} ({r.job.location}){mark}")
+        when = f"  {r.job.posted}" if r.job.posted else ""
+        typer.echo(f"  {i:>2}. {r.fit:>3}%  {r.job.title} @ {r.job.company} "
+                   f"({r.job.location}){when}{mark}")
         typer.echo(f"        {r.job.url}")
         if r.matched:
             typer.echo(f"        matches: {', '.join(r.matched)}")
