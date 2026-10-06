@@ -114,6 +114,40 @@ def test_reconcile_with_nothing_to_match_changes_nothing(base):
     assert capture.slug == "projuris"
 
 
+def test_a_skipped_capture_has_its_own_step(base):
+    capture = inbox.save_capture(PAYLOAD, base)
+    assert inbox.mark_skipped(capture.slug, "no fit", base) == "projuris"
+    assert inbox.step_of(capture.slug, inbox.load_ledger()[0], base) == "skipped"
+
+
+def test_a_skipped_capture_keeps_the_reason(base):
+    capture = inbox.save_capture(PAYLOAD, base)
+    inbox.mark_skipped(capture.slug, "needs VS Code extension experience", base)
+    entry = inbox.load_ledger()[0]
+    assert entry["skip_reason"] == "needs VS Code extension experience"
+    assert entry["skipped_at"]
+
+
+def test_a_skipped_capture_is_not_made_ready_by_a_cv(base):
+    """A posting passed over must not re-enter the queue because a CV sits there."""
+    capture = inbox.save_capture(PAYLOAD, base)
+    _with_cv(base, capture.slug)
+    assert inbox.step_of(capture.slug, inbox.load_ledger()[0], base) == "cv-ready"
+    inbox.mark_skipped(capture.slug, "no fit", base)
+    assert inbox.step_of(capture.slug, inbox.load_ledger()[0], base) == "skipped"
+
+
+def test_a_skipped_capture_is_not_applied(base):
+    capture = inbox.save_capture(PAYLOAD, base)
+    inbox.mark_skipped(capture.slug, "no fit", base)
+    assert inbox.jobs(base)[0]["step"] == "skipped"
+
+
+def test_mark_skipped_returns_none_for_an_unknown_job(base):
+    inbox.save_capture(PAYLOAD, base)
+    assert inbox.mark_skipped("nope", "", base) is None
+
+
 # ---- over HTTP -------------------------------------------------------------
 
 @pytest.fixture
