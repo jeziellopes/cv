@@ -787,11 +787,11 @@ def status_command() -> None:
     for e in entries:
         date = jd_date(e.get("slug", ""))
         if date:
-            dated.append((e.get("slug", ""), date))
+            dated.append((date, e.get("slug", "")))
     if dated:
         typer.echo("\n  JD generated:")
-        for slug, date in dated:
-            typer.echo(f"    {slug:34} {date}")
+        for date, slug in dated:
+            typer.echo(f"    {date}  {slug}")
 
     if pending:
         typer.echo("\n  waiting on a CV:")
