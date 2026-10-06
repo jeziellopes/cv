@@ -400,16 +400,25 @@ def cv_gaps(slug: str, base_dir: Optional[Path] = None) -> Optional[dict[str, li
     return found
 
 
-# The capture lifecycle: captured -> cv-ready -> applied. Only the last is
-# stored. "cv-ready" is read from the files on disk, so regenerating or deleting
-# a CV moves the step without anything needing to be kept in sync.
-STEPS = ("captured", "cv-ready", "applied")
+# The capture lifecycle: captured -> cv-ready -> applied, and a posting passed
+# over on purpose is skipped. Only applied and skipped are stored; "cv-ready" is
+# read from the files on disk, so regenerating or deleting a CV moves the step
+# without anything needing to be kept in sync.
+STEPS = ("captured", "cv-ready", "applied", "skipped")
 _APPLIED = {"applied"}
+_SKIPPED = {"skipped", "rejected", "declined"}
 
 
 def step_of(slug: str, entry: dict, base_dir: Optional[Path] = None) -> str:
-    """Which step a capture has reached."""
-    if str(entry.get("status", "new")).lower() in _APPLIED:
+    """Which step a capture has reached.
+
+    Skipped is checked first: a posting deliberately passed over must not become
+    pending again because a CV happens to sit beside it.
+    """
+    status = str(entry.get("status", "new")).lower()
+    if status in _SKIPPED:
+        return "skipped"
+    if status in _APPLIED:
         return "applied"
     return "cv-ready" if has_cv(slug, base_dir) else "captured"
 
@@ -489,6 +498,24 @@ def reconcile(identifiers, base_dir: Optional[Path] = None) -> list[str]:
     return applied
 
 
+def mark_skipped(identifier: str, reason: str = "",
+                 base_dir: Optional[Path] = None) -> Optional[str]:
+    """Record that a posting was passed over on purpose, and why."""
+    entry = job_for(identifier, base_dir)
+    if not entry:
+        return None
+    entries = load_ledger()
+    for candidate in entries:
+        if candidate.get("slug") == entry.get("slug"):
+            candidate["status"] = "skipped"
+            candidate["skipped_at"] = datetime.now(timezone.utc).isoformat(
+                timespec="seconds")
+            if reason:
+                candidate["skip_reason"] = reason
+    save_ledger(entries)
+    return entry.get("slug")
+
+
 @app.command("list")
 def list_command(
     all_: bool = typer.Option(False, "--all", help="include processed captures"),
@@ -500,7 +527,8 @@ def list_command(
     if not all_ and not pending:
         entries = [e for e in entries if e.get("status") == "new"]
     if pending:
-        entries = [e for e in entries if not has_cv(e.get("slug", ""))]
+        entries = [e for e in entries
+                   if step_of(e.get("slug", ""), e) == "captured"]
 
     if not entries:
         typer.echo("Queue is empty.")
@@ -542,6 +570,20 @@ def applied_command(identifier: str) -> None:
     typer.echo(f"{slug} marked applied.")
 
 
+@app.command("skip")
+def skip_command(
+    identifier: str,
+    reason: str = typer.Option("", "--reason", "-r",
+                               help="why this posting was passed over"),
+) -> None:
+    """Record that a posting was passed over on purpose."""
+    slug = mark_skipped(identifier, reason)
+    if not slug:
+        typer.echo(f"No capture matching {identifier}.", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"{slug} skipped." + (f"  ({reason})" if reason else ""))
+
+
 def find_entry(slug: str) -> Optional[dict]:
     for entry in load_ledger():
         if entry.get("slug") == slug:
@@ -557,13 +599,15 @@ def show_command(slug: str) -> None:
         typer.echo(f"No capture with slug {slug}.", err=True)
         raise typer.Exit(code=1)
     ready = has_cv(slug)
+    step = step_of(slug, entry)
     typer.echo(f"  company   {entry.get('company', '')}")
     typer.echo(f"  title     {entry.get('title', '')}")
     typer.echo(f"  location  {entry.get('location') or '-'}")
     typer.echo(f"  linkedin  {entry.get('url', '')}")
     typer.echo(f"  apply     {entry.get('apply_url') or '(none: Easy Apply)'}")
-    typer.echo(f"  status    {entry.get('status', '?')}, CV "
-               f"{'ready' if ready else 'pending'}")
+    typer.echo(f"  step      {step}, CV {'ready' if ready else 'pending'}")
+    if entry.get("skip_reason"):
+        typer.echo(f"  skipped   {entry['skip_reason']}")
     typer.echo(f"  captured  {entry.get('captured_at', '')}")
     typer.echo(f"  jd        companies/{slug}/description.md")
 
@@ -596,12 +640,18 @@ def status_command() -> None:
     if not entries:
         typer.echo("Queue is empty.")
         return
-    pending = [e for e in entries if not has_cv(e.get("slug", ""))]
-    ready = [e for e in entries if has_cv(e.get("slug", ""))]
+    step = {e.get("slug", ""): step_of(e.get("slug", ""), e) for e in entries}
+    pending = [e for e in entries if step[e.get("slug", "")] == "captured"]
+    with_cv = [e for e in entries if has_cv(e.get("slug", ""))]
+    ready = [e for e in entries if step[e.get("slug", "")] == "cv-ready"]
+    applied = [e for e in entries if step[e.get("slug", "")] == "applied"]
+    skipped = [e for e in entries if step[e.get("slug", "")] == "skipped"]
     with_link = [e for e in entries if e.get("apply_url")]
 
     typer.echo(f"  captures         {len(entries)}")
     typer.echo(f"  CV ready         {len(ready)}")
+    typer.echo(f"  applied          {len(applied)}")
+    typer.echo(f"  skipped          {len(skipped)}")
     typer.echo(f"  pending CV       {len(pending)}")
     typer.echo(f"  with apply link  {len(with_link)}")
 
@@ -609,7 +659,7 @@ def status_command() -> None:
     # not the same as clean, so it is reported rather than assumed.
     gapped: list[tuple[str, dict[str, list[str]]]] = []
     unknown = False
-    for entry in ready:
+    for entry in with_cv:
         gaps = cv_gaps(entry.get("slug", ""))
         if gaps is None:
             unknown = True
