@@ -20,6 +20,7 @@ import json
 import re
 import secrets
 import unicodedata
+import urllib.parse
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -242,17 +243,39 @@ def make_handler(token: str, base_dir: Path):
         def do_OPTIONS(self) -> None:  # noqa: N802
             self._send(204, {})
 
+        def _authorized(self) -> bool:
+            return secrets.compare_digest(self.headers.get("X-CV-Token", ""), token)
+
         def do_GET(self) -> None:  # noqa: N802
             if self.path == "/health":
                 self._send(200, {"ok": True})
-            else:
-                self._send(404, {"ok": False, "error": "not found"})
+                return
+            if self.path.split("?")[0] == "/jobs":
+                if not self._authorized():
+                    self._send(401, {"ok": False, "error": "bad token"})
+                    return
+                query = urllib.parse.urlparse(self.path).query
+                params = urllib.parse.parse_qs(query)
+                if "id" in params or "slug" in params:
+                    key = (params.get("id") or params.get("slug"))[0]
+                    entry = job_for(key, base_dir)
+                    self._send(200, {"ok": True,
+                                     "job": job_view(entry, base_dir) if entry else None})
+                    return
+                limit = params.get("limit", ["20"])[0]
+                try:
+                    count = max(1, min(200, int(limit)))
+                except ValueError:
+                    count = 20
+                self._send(200, {"ok": True, "jobs": jobs(base_dir, count)})
+                return
+            self._send(404, {"ok": False, "error": "not found"})
 
         def do_POST(self) -> None:  # noqa: N802
-            if self.path not in ("/capture", "/diagnose"):
+            if self.path not in ("/capture", "/diagnose", "/applied", "/reconcile"):
                 self._send(404, {"ok": False, "error": "not found"})
                 return
-            if not secrets.compare_digest(self.headers.get("X-CV-Token", ""), token):
+            if not self._authorized():
                 self._send(401, {"ok": False, "error": "bad token"})
                 return
             limit = MAX_DIAGNOSE if self.path == "/diagnose" else MAX_BODY
@@ -276,6 +299,25 @@ def make_handler(token: str, base_dir: Path):
             if self.path == "/diagnose":
                 out = save_diagnose(payload, base_dir)
                 self._send(200, {"ok": True, "path": out.name})
+                return
+
+            if self.path == "/applied":
+                slug = mark_applied(
+                    payload.get("slug") or payload.get("url") or "", base_dir)
+                if not slug:
+                    self._send(404, {"ok": False, "error": "no such capture"})
+                    return
+                self._send(200, {"ok": True, "slug": slug})
+                return
+
+            if self.path == "/reconcile":
+                ids = payload.get("ids")
+                if not isinstance(ids, list):
+                    self._send(422, {"ok": False, "error": "expected ids: []"})
+                    return
+                applied = reconcile(ids, base_dir)
+                self._send(200, {"ok": True, "applied": applied,
+                                 "count": len(applied)})
                 return
 
             try:
@@ -358,6 +400,95 @@ def cv_gaps(slug: str, base_dir: Optional[Path] = None) -> Optional[dict[str, li
     return found
 
 
+# The capture lifecycle: captured -> cv-ready -> applied. Only the last is
+# stored. "cv-ready" is read from the files on disk, so regenerating or deleting
+# a CV moves the step without anything needing to be kept in sync.
+STEPS = ("captured", "cv-ready", "applied")
+_APPLIED = {"applied"}
+
+
+def step_of(slug: str, entry: dict, base_dir: Optional[Path] = None) -> str:
+    """Which step a capture has reached."""
+    if str(entry.get("status", "new")).lower() in _APPLIED:
+        return "applied"
+    return "cv-ready" if has_cv(slug, base_dir) else "captured"
+
+
+def job_for(identifier: str, base_dir: Optional[Path] = None) -> Optional[dict]:
+    """A ledger entry by slug, by posting URL, or by LinkedIn job id."""
+    key = str(identifier or "").strip()
+    if not key:
+        return None
+    for entry in load_ledger():
+        url = str(entry.get("url", ""))
+        if entry.get("slug") == key or url == key:
+            return entry
+        match = re.search(r"/jobs/view/(\d+)", url)
+        if match and match.group(1) == key:
+            return entry
+    return None
+
+
+def job_view(entry: dict, base_dir: Optional[Path] = None) -> dict:
+    slug = str(entry.get("slug", ""))
+    return {
+        "slug": slug,
+        "company": entry.get("company", ""),
+        "title": entry.get("title", ""),
+        "url": entry.get("url", ""),
+        "apply_url": entry.get("apply_url", ""),
+        "captured_at": entry.get("captured_at", ""),
+        "step": step_of(slug, entry, base_dir),
+    }
+
+
+def jobs(base_dir: Optional[Path] = None, limit: Optional[int] = None) -> list[dict]:
+    """Every capture as a step view, most recently captured first."""
+    view = [job_view(entry, base_dir) for entry in load_ledger()]
+    view.sort(key=lambda job: job.get("captured_at", ""), reverse=True)
+    return view[:limit] if limit else view
+
+
+def mark_applied(identifier: str, base_dir: Optional[Path] = None) -> Optional[str]:
+    """Record that an application was submitted, by slug or posting.
+
+    Returns the slug on success, None when nothing matched.
+    """
+    entry = job_for(identifier, base_dir)
+    if not entry:
+        return None
+    entries = load_ledger()
+    for candidate in entries:
+        if candidate.get("slug") == entry.get("slug"):
+            candidate["status"] = "applied"
+    save_ledger(entries)
+    return entry.get("slug")
+
+
+def reconcile(identifiers, base_dir: Optional[Path] = None) -> list[str]:
+    """Mark every capture that matches one of these job ids or URLs applied.
+
+    LinkedIn's own Applied list is the only reliable record of what was sent,
+    so the extension reads it and hands the ids over in one call.
+    """
+    wanted = {str(i).strip() for i in identifiers or [] if str(i).strip()}
+    if not wanted:
+        return []
+    entries = load_ledger()
+    applied: list[str] = []
+    for entry in entries:
+        url = str(entry.get("url", ""))
+        match = re.search(r"/jobs/view/(\d+)", url)
+        job_id = match.group(1) if match else ""
+        if (entry.get("slug") in wanted or url in wanted
+                or (job_id and job_id in wanted)):
+            entry["status"] = "applied"
+            applied.append(str(entry.get("slug", "")))
+    if applied:
+        save_ledger(entries)
+    return applied
+
+
 @app.command("list")
 def list_command(
     all_: bool = typer.Option(False, "--all", help="include processed captures"),
@@ -378,43 +509,37 @@ def list_command(
     needs = 0
     for e in entries:
         slug = e.get("slug", "")
-        ready = has_cv(slug)
-        if not ready:
+        step = step_of(slug, e)
+        if step == "captured":
             needs += 1
         typer.echo(
-            f"  [{e.get('status', '?'):4}] {'CV ready' if ready else 'pending '} "
-            f"{slug:22} {e.get('company', '')} - {e.get('title', '')}"
+            f"  [{step:8}] {slug:22} {e.get('company', '')} - {e.get('title', '')}"
         )
         # The apply link is the reason the capture exists; show it here rather
         # than leaving it buried in the JD file.
         if e.get("apply_url"):
-            typer.echo(f"         apply: {e['apply_url']}")
+            typer.echo(f"             apply: {e['apply_url']}")
     typer.echo(f"\n{len(entries)} captur(es), {needs} still need a CV.")
 
 
 @app.command("next")
 def next_command() -> None:
-    """Print the path of the oldest unprocessed capture."""
+    """Print the path of the oldest capture that still needs a CV."""
     for e in load_ledger():
-        if e.get("status") == "new":
+        if step_of(e.get("slug", ""), e) == "captured":
             typer.echo(f"companies/{e['slug']}/description.md")
             return
-    typer.echo("Queue is empty.", err=True)
-    raise typer.Exit(code=1)
+    typer.echo("Nothing waiting on a CV.")
 
 
-@app.command("done")
-def done_command(slug: str) -> None:
-    """Mark a capture as processed."""
-    entries = load_ledger()
-    for e in entries:
-        if e.get("slug") == slug:
-            e["status"] = "done"
-            save_ledger(entries)
-            typer.echo(f"{slug} marked done.")
-            return
-    typer.echo(f"No capture with slug {slug}.", err=True)
-    raise typer.Exit(code=1)
+@app.command("applied")
+def applied_command(identifier: str) -> None:
+    """Record that an application was submitted, by slug or posting URL."""
+    slug = mark_applied(identifier)
+    if not slug:
+        typer.echo(f"No capture matching {identifier}.", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"{slug} marked applied.")
 
 
 def find_entry(slug: str) -> Optional[dict]:
