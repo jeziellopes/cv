@@ -107,3 +107,9 @@ inbox-diagnose.json
 
 # What each PDF was built from, so a change to the checks can mark it stale.
 .build-*.json
+
+# The Gmail OAuth client and the token it produces. Local only: the token grants
+# read access to the operator's mail, and the client identifies the app that
+# asked for it.
+.cv-gmail-client.json
+.cv-gmail-token.json
