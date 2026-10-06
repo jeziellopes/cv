@@ -322,13 +322,19 @@ def make_handler(token: str, base_dir: Path):
 
             if self.path in ("/skip", "/reconsider"):
                 identifier = (payload.get("slug") or payload.get("url") or "")
-                if self.path == "/skip":
-                    slug = mark_skipped(identifier, str(payload.get("reason") or ""),
-                                        base_dir)
-                    step = "skipped"
-                else:
-                    slug = mark_reconsidered(identifier, base_dir)
-                    step = "captured"
+                try:
+                    if self.path == "/skip":
+                        slug = mark_skipped(identifier,
+                                            str(payload.get("reason") or ""),
+                                            base_dir)
+                        step = "skipped"
+                    else:
+                        slug = mark_reconsidered(identifier, base_dir)
+                        step = "captured"
+                except StepTransitionError as exc:
+                    self._send(409, {"ok": False, "code": exc.identity,
+                                     "error": exc.detail})
+                    return
                 if not slug:
                     self._send(404, {"ok": False, "code": E_NO_CAPTURE,
                                      "error": "no such capture"})
@@ -416,6 +422,15 @@ def cv_gaps(slug: str, base_dir: Optional[Path] = None) -> Optional[dict[str, li
     return found
 
 
+def jd_date(slug: str, base_dir: Optional[Path] = None) -> str:
+    """The date the capture's JD file was last written, or empty."""
+    base_dir = base_dir or BASE_DIR
+    jd = base_dir / "companies" / slug / "description.md"
+    if not jd.is_file():
+        return ""
+    return datetime.fromtimestamp(jd.stat().st_mtime).date().isoformat()
+
+
 # The capture lifecycle: captured -> cv-ready -> applied, and a posting passed
 # over on purpose is skipped. Only applied and skipped are stored; "cv-ready" is
 # read from the files on disk, so regenerating or deleting a CV moves the step
@@ -426,6 +441,21 @@ _SKIPPED = {"skipped", "rejected", "declined"}
 
 # Returned in `code` so a caller branches on the identity, never on the message.
 E_NO_CAPTURE = "E_NO_CAPTURE"
+E_ALREADY_APPLIED = "E_ALREADY_APPLIED"
+E_NOT_SKIPPED = "E_NOT_SKIPPED"
+
+
+class StepTransitionError(Exception):
+    """A step change that the capture's own step forbids.
+
+    A declining option shown on an applied capture, or a reconsider shown on one
+    that was never declined, would otherwise write an impossible transition.
+    """
+
+    def __init__(self, identity: str, detail: str = "") -> None:
+        super().__init__(detail or identity)
+        self.identity = identity
+        self.detail = detail
 
 
 def step_of(slug: str, entry: dict, base_dir: Optional[Path] = None) -> str:
@@ -520,10 +550,17 @@ def reconcile(identifiers, base_dir: Optional[Path] = None) -> list[str]:
 
 def mark_skipped(identifier: str, reason: str = "",
                  base_dir: Optional[Path] = None) -> Optional[str]:
-    """Record that a posting was passed over on purpose, and why."""
+    """Record that a posting was passed over on purpose, and why.
+
+    Refuses a capture already recorded as applied: an application that was sent
+    cannot be declined after the fact.
+    """
     entry = job_for(identifier, base_dir)
     if not entry:
         return None
+    if str(entry.get("status", "new")).lower() in _APPLIED:
+        raise StepTransitionError(E_ALREADY_APPLIED,
+                                  "the application was already sent")
     entries = load_ledger()
     for candidate in entries:
         if candidate.get("slug") == entry.get("slug"):
@@ -538,10 +575,17 @@ def mark_skipped(identifier: str, reason: str = "",
 
 def mark_reconsidered(identifier: str, base_dir: Optional[Path] = None
                       ) -> Optional[str]:
-    """Return a declined posting to captured, dropping the reason with it."""
+    """Return a declined posting to captured, dropping the reason with it.
+
+    Refuses a capture that was not declined: reconsidering exists to take a
+    decline back, not to move any other step.
+    """
     entry = job_for(identifier, base_dir)
     if not entry:
         return None
+    if str(entry.get("status", "new")).lower() not in _SKIPPED:
+        raise StepTransitionError(E_NOT_SKIPPED,
+                                  "only a declined posting can be reconsidered")
     entries = load_ledger()
     for candidate in entries:
         if candidate.get("slug") == entry.get("slug"):
@@ -738,6 +782,16 @@ def status_command() -> None:
         for slug, gaps in gapped:
             for cv_file, tags in gaps.items():
                 typer.echo(f"    {slug:22} {cv_file}  <- {', '.join(tags)}")
+
+    dated = []
+    for e in entries:
+        date = jd_date(e.get("slug", ""))
+        if date:
+            dated.append((e.get("slug", ""), date))
+    if dated:
+        typer.echo("\n  JD generated:")
+        for slug, date in dated:
+            typer.echo(f"    {slug:34} {date}")
 
     if pending:
         typer.echo("\n  waiting on a CV:")

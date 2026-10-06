@@ -135,7 +135,8 @@ function jobRow(job) {
     back.textContent = "Reconsider";
     back.addEventListener("click", () => reconsider(job.slug));
     row.append(reason, back);
-  } else {
+  } else if (job.step !== "applied") {
+    // Decline is a choice only while the application has not been sent.
     const form = document.createElement("div");
     form.className = "decline";
     const input = document.createElement("input");
