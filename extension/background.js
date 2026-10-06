@@ -70,5 +70,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     post("/reconcile", { ids: msg.ids }).then(sendResponse);
     return true;
   }
+  if (msg.type === "skip") {
+    post("/skip", msg.payload).then(sendResponse);
+    return true;
+  }
+  if (msg.type === "reconsider") {
+    post("/reconsider", msg.payload).then(sendResponse);
+    return true;
+  }
   return false;
 });
