@@ -1,0 +1,1383 @@
+{
+  "_doc": [
+    "The skill vocabulary for the gaps ledger (ADR 0003).",
+    "soft:   skills with no repository artifact by nature, so never evidenced.",
+    "allowed: a skill that is not evidenced but is recorded as acceptable, with a reason.",
+    "extra:  canonical skills to watch for in postings even when no CV claims them yet.",
+    "probes: evidence patterns for a skill whose evidence is not its own name.",
+    "Everything else is evidenced by scanning the repositories for the skill's own name."
+  ],
+  "soft": [
+    "agile",
+    "agile methodologies",
+    "metodologias ágeis",
+    "backlog",
+    "backlog refinement",
+    "refinamento de backlog",
+    "requirements gathering",
+    "levantamento de requisitos",
+    "acceptance criteria",
+    "critérios de aceitação",
+    "scrum",
+    "kanban",
+    "clean code",
+    "code review",
+    "code reviews",
+    "revisão de código",
+    "revisões de código",
+    "mentoring",
+    "mentorship",
+    "mentoria",
+    "mentorei",
+    "mentored",
+    "ux",
+    "ux principles",
+    "princípios de ux",
+    "usability",
+    "usabilidade",
+    "accessibility",
+    "acessibilidade",
+    "responsive design",
+    "design responsivo",
+    "responsive",
+    "accessible",
+    "technical documentation",
+    "documentação técnica",
+    "documentation",
+    "design patterns",
+    "padrões de design",
+    "solid",
+    "system design",
+    "system design principles",
+    "princípios de system design",
+    "sre concepts",
+    "tdd",
+    "test-driven development",
+    "spec-driven development",
+    "spec-driven",
+    "spec-first",
+    "sdd",
+    "ai-assisted development",
+    "ai-assisted engineering",
+    "ai-assisted delivery",
+    "ai-native",
+    "engenharia assistida por ia",
+    "reviewing ai output critically",
+    "revisão crítica",
+    "correção de rumo",
+    "causa raiz",
+    "prompt engineering",
+    "multi-step reasoning",
+    "capability ceilings",
+    "separation of concerns",
+    "object-oriented",
+    "testability",
+    "testabilidade",
+    "code quality",
+    "qualidade de código",
+    "padrões de qualidade",
+    "cost accounting",
+    "custos por token",
+    "custo por token",
+    "per-token cost",
+    "controle de custo de llm",
+    "gating de requisições",
+    "technical seo",
+    "seo",
+    "geo",
+    "ai search",
+    "decision making",
+    "decisão com produto e design",
+    "escrita clara",
+    "performance",
+    "web performance",
+    "performance web",
+    "performance optimization",
+    "code conventions",
+    "enforced commit conventions",
+    "personal fintech projects",
+    "backlog técnico",
+    "de integracao",
+    "de integração",
+    "debitos tecnicos",
+    "débitos técnicos",
+    "debito tecnico",
+    "débito técnico",
+    "plano de implementacao",
+    "plano de implementação",
+    "evidencia por verificacao",
+    "evidência por verificação",
+    "scores reproduziveis",
+    "scores reproduzíveis",
+    "gera a documentacao",
+    "gera a documentação",
+    "uso real pos-deploy",
+    "uso real pós-deploy",
+    "multiplas paginas",
+    "múltiplas páginas",
+    "agentes llm",
+    "agentes de workflow",
+    "model routing",
+    "ingestão",
+    "ingestao",
+    "contexto para agentes",
+    "montagem de contexto",
+    "copilotos",
+    "ai copilots",
+    "ai coding assistants",
+    "ai coding agents",
+    "tool calling",
+    "tool-calling",
+    "workflows",
+    "agents",
+    "cost_micros",
+    "llm gateway",
+    "openai gateway",
+    "agent harness",
+    "agent runtime",
+    "agent runtimes",
+    "xray/raiox",
+    "xray",
+    "raiox",
+    "multimarcas"
+  ],
+  "allowed": {
+    "Laravel": "PHP at Grupo Central; no repository on this machine",
+    "Dart": "Flutter at Foodway; no repository on this machine",
+    "MongoDB": "used at DevSkin; no repository on this machine",
+    "GitLab CI/CD": "pipelines at BR Media; not in a repository here",
+    "DPA": "a contract concept, not an engineering artifact",
+    "Gatsby": "used at ioasys; no repository on this machine"
+  },
+  "extra": [
+    "DynamoDB",
+    "APIGEE",
+    "GraphQL",
+    "Kafka",
+    "RabbitMQ",
+    "Redis",
+    "MySQL",
+    "SQL",
+    "NoSQL",
+    "Lambda",
+    "SQS",
+    "ECS",
+    "IAM",
+    "S3",
+    "Nginx",
+    "Linux",
+    "Kubernetes",
+    "ArgoCD",
+    "K3s",
+    "GitOps",
+    "Prometheus",
+    "Grafana",
+    "Loki",
+    "Alertmanager",
+    "OpenTelemetry",
+    "Zustand",
+    "TanStack Router",
+    "React Hook Form",
+    "Zod",
+    "Vite",
+    "Webpack",
+    "Module Federation",
+    "Express",
+    "FastAPI",
+    "Drizzle ORM",
+    "Prisma",
+    "Supabase",
+    "Stripe",
+    "LangChain",
+    "OpenAI",
+    "Anthropic",
+    "Pydantic",
+    "pytest",
+    "Vitest",
+    "jQuery",
+    "Turborepo",
+    "WebSockets",
+    "Socket.IO",
+    "Row-Level Security",
+    "multi-tenant",
+    "Event-Driven Architecture",
+    "Message Queuing",
+    "durable execution",
+    "MCP"
+  ],
+  "probes": {
+    "react": [
+      "from \"react\"",
+      "react-dom",
+      "@types/react",
+      "usestate",
+      "useeffect"
+    ],
+    "next.js": [
+      "next/",
+      "from \"next",
+      "next.config",
+      "next/server"
+    ],
+    "node.js": [
+      "from \"node:",
+      "require(",
+      "process.env",
+      "\"node\":"
+    ],
+    "nestjs": [
+      "@nestjs/",
+      "@nestjs"
+    ],
+    "react native": [
+      "react-native",
+      "react_native"
+    ],
+    "tailwind": [
+      "tailwind"
+    ],
+    "storybook": [
+      "storybook"
+    ],
+    "design system": [
+      "design-system",
+      "design_system",
+      "designsystem",
+      "design-tokens"
+    ],
+    "docker": [
+      "dockerfile",
+      "docker-compose",
+      "docker compose"
+    ],
+    "kubernetes": [
+      "k3s",
+      "argocd",
+      "kubernetes",
+      "kubeconfig",
+      "kubectl"
+    ],
+    "terraform": [
+      "resource \"",
+      "provider \"",
+      "terraform"
+    ],
+    "aws": [
+      "aws-sdk",
+      "@aws-sdk",
+      "boto3",
+      "botocore"
+    ],
+    "s3": [
+      "s3://",
+      "aws s3",
+      "bucket",
+      "\"s3\""
+    ],
+    "lambda": [
+      "lambda_handler",
+      "serverless",
+      "aws lambda"
+    ],
+    "sqs": [
+      "sqs",
+      "simplequeue"
+    ],
+    "ecs": [
+      "ecs",
+      "ecscluster",
+      "fargate"
+    ],
+    "iam": [
+      "iam.",
+      "iam policy",
+      "\"iam\""
+    ],
+    "mongodb": [
+      "mongodb://",
+      "mongoclient",
+      "mongoose",
+      "pymongo"
+    ],
+    "postgresql": [
+      "postgres",
+      "pg_",
+      "psycopg",
+      "pgvector"
+    ],
+    "redis": [
+      "redis"
+    ],
+    "rabbitmq": [
+      "rabbitmq",
+      "amqp"
+    ],
+    "kafka": [
+      "kafka"
+    ],
+    "mysql": [
+      "mysql"
+    ],
+    "prisma": [
+      "prisma"
+    ],
+    "drizzle orm": [
+      "drizzle-orm",
+      "drizzle"
+    ],
+    "supabase": [
+      "supabase"
+    ],
+    "cypress": [
+      "cypress"
+    ],
+    "jest": [
+      "\"jest\"",
+      "jest.config",
+      "jest."
+    ],
+    "vitest": [
+      "vitest"
+    ],
+    "pytest": [
+      "pytest",
+      "conftest"
+    ],
+    "testing library": [
+      "@testing-library"
+    ],
+    "playwright": [
+      "playwright"
+    ],
+    "jwt": [
+      "jsonwebtoken",
+      "jwt.",
+      "passport-jwt",
+      "jwtservice",
+      "createhmac",
+      "jwt"
+    ],
+    "swagger/openapi": [
+      "openapi",
+      "swagger"
+    ],
+    "websockets": [
+      "websocket",
+      "socket.io",
+      "ws://",
+      "wss://"
+    ],
+    "socket.io": [
+      "socket.io"
+    ],
+    "hetzner cloud": [
+      "hcloud_",
+      "provider \"hcloud\"",
+      "hetzner"
+    ],
+    "nginx": [
+      "nginx"
+    ],
+    "linux": [
+      "systemd",
+      "/etc/",
+      "bash",
+      "#!/bin/",
+      "apt-get",
+      "chmod"
+    ],
+    "ci/cd": [
+      "github/workflows",
+      "gitlab-ci",
+      ".gitlab-ci",
+      "circleci",
+      "pipeline"
+    ],
+    "github actions": [
+      "github/workflows",
+      "uses: actions/"
+    ],
+    "gitlab ci/cd": [
+      "gitlab-ci",
+      ".gitlab-ci"
+    ],
+    "grafana": [
+      "grafana"
+    ],
+    "prometheus": [
+      "prometheus"
+    ],
+    "loki": [
+      "loki"
+    ],
+    "alertmanager": [
+      "alertmanager"
+    ],
+    "opentelemetry": [
+      "opentelemetry",
+      "@opentelemetry"
+    ],
+    "elastic apm": [
+      "elastic/apm",
+      "@elastic/apm"
+    ],
+    "langchain": [
+      "langchain"
+    ],
+    "openai": [
+      "openai"
+    ],
+    "anthropic": [
+      "anthropic",
+      "claude"
+    ],
+    "pydantic": [
+      "pydantic"
+    ],
+    "fastapi": [
+      "fastapi"
+    ],
+    "express": [
+      "express"
+    ],
+    "vite": [
+      "vite"
+    ],
+    "webpack": [
+      "webpack"
+    ],
+    "zustand": [
+      "zustand"
+    ],
+    "zod": [
+      "zod"
+    ],
+    "react hook form": [
+      "react-hook-form"
+    ],
+    "e2e testing": [
+      "playwright",
+      "cypress",
+      "e2e"
+    ],
+    "unit testing": [
+      "jest",
+      "vitest",
+      "pytest",
+      "@test",
+      "describe("
+    ],
+    "integration testing": [
+      "integration"
+    ],
+    "apis restful": [
+      "app.get(",
+      "app.post(",
+      "@get",
+      "@post",
+      "router.",
+      "fastapi",
+      "axios",
+      "fetch("
+    ],
+    "restful apis": [
+      "app.get(",
+      "app.post(",
+      "@get",
+      "@post",
+      "router.",
+      "fastapi",
+      "axios",
+      "fetch("
+    ],
+    "graphql": [
+      "graphql",
+      "apollo"
+    ],
+    "microservices architecture": [
+      "microservice",
+      "grpc",
+      "services/"
+    ],
+    "event-driven architecture": [
+      "eventbus",
+      "event_bus",
+      "publish(",
+      "subscriber",
+      "listener",
+      "rabbitmq",
+      "kafka"
+    ],
+    "row-level security": [
+      "row level security",
+      "rls",
+      "row_level_security"
+    ],
+    "multi-tenant": [
+      "tenant",
+      "multi-tenant",
+      "multitenant"
+    ],
+    "integracao de apis": [
+      "axios",
+      "fetch(",
+      "httpx",
+      "requests.",
+      "openapi",
+      "app.get(",
+      "app.post(",
+      "router.",
+      "client.get(",
+      "requests.get"
+    ],
+    "integracao de api": [
+      "axios",
+      "fetch(",
+      "httpx",
+      "requests.",
+      "openapi",
+      "app.get(",
+      "app.post(",
+      "router.",
+      "client.get(",
+      "requests.get"
+    ],
+    "api integration": [
+      "axios",
+      "fetch(",
+      "httpx",
+      "requests.",
+      "openapi",
+      "app.get(",
+      "app.post(",
+      "router.",
+      "client.get(",
+      "requests.get"
+    ],
+    "rest api integration": [
+      "axios",
+      "fetch(",
+      "httpx",
+      "requests.",
+      "openapi",
+      "app.get(",
+      "app.post(",
+      "router.",
+      "client.get(",
+      "requests.get"
+    ],
+    "integracao": [
+      "axios",
+      "fetch(",
+      "httpx",
+      "requests.",
+      "openapi",
+      "app.get(",
+      "app.post(",
+      "router.",
+      "client.get(",
+      "requests.get"
+    ],
+    "testes unitarios": [
+      "describe(",
+      "def test_",
+      "@test",
+      "it(",
+      "expect(",
+      "assert ",
+      "test("
+    ],
+    "testes de integracao": [
+      "describe(",
+      "def test_",
+      "@test",
+      "it(",
+      "expect(",
+      "assert ",
+      "test(",
+      "integration"
+    ],
+    "unit and integration testing": [
+      "describe(",
+      "def test_",
+      "@test",
+      "it(",
+      "expect(",
+      "assert ",
+      "test("
+    ],
+    "unit and integration tests": [
+      "describe(",
+      "def test_",
+      "@test",
+      "it(",
+      "expect(",
+      "assert ",
+      "test("
+    ],
+    "integration tests": [
+      "describe(",
+      "def test_",
+      "@test",
+      "it(",
+      "expect(",
+      "assert ",
+      "test(",
+      "integration"
+    ],
+    "component tests": [
+      "describe(",
+      "def test_",
+      "@test",
+      "it(",
+      "expect(",
+      "assert ",
+      "test("
+    ],
+    "end-to-end specs": [
+      "playwright",
+      "cypress",
+      "e2e"
+    ],
+    "testes automatizados": [
+      "describe(",
+      "def test_",
+      "@test",
+      "it(",
+      "expect(",
+      "assert ",
+      "test("
+    ],
+    "migracoes": [
+      "migration",
+      "migrate",
+      "alembic",
+      "prisma migrate",
+      "knex",
+      "schema.prisma"
+    ],
+    "normalizacao de dados": [
+      "migration",
+      "migrate",
+      "alembic",
+      "prisma migrate",
+      "knex",
+      "schema.prisma",
+      "normal",
+      "3nf",
+      "foreign key"
+    ],
+    "normalizacao": [
+      "migration",
+      "migrate",
+      "alembic",
+      "prisma migrate",
+      "knex",
+      "schema.prisma",
+      "normal",
+      "3nf",
+      "foreign key"
+    ],
+    "modelagem de dados": [
+      "create table",
+      "schema",
+      "model",
+      "migration",
+      "prisma"
+    ],
+    "schema": [
+      "create table",
+      "schema",
+      "zod",
+      "pydantic",
+      "migration"
+    ],
+    "schema validation": [
+      "zod",
+      "pydantic",
+      "joi",
+      "yup",
+      "schema"
+    ],
+    "sistemas distribuidos": [
+      "grpc",
+      "kafka",
+      "rabbitmq",
+      "redis",
+      "microservice",
+      "cluster",
+      "worker"
+    ],
+    "arquitetura de microsservicos": [
+      "microservice",
+      "grpc",
+      "services/"
+    ],
+    "microservices": [
+      "microservice",
+      "grpc",
+      "services/"
+    ],
+    "arquitetura de microservices": [
+      "microservice",
+      "grpc",
+      "services/"
+    ],
+    "indexacao": [
+      "create index",
+      "index on",
+      "@index",
+      "gin",
+      "index="
+    ],
+    "indexing": [
+      "create index",
+      "index on",
+      "@index",
+      "gin",
+      "index="
+    ],
+    "autenticacao jwt": [
+      "jwt",
+      "jsonwebtoken",
+      "passport-jwt",
+      "jwtservice"
+    ],
+    "autenticacao": [
+      "auth",
+      "jwt",
+      "passport",
+      "login",
+      "session"
+    ],
+    "internacionalizacao": [
+      "i18n",
+      "intl.",
+      "locale",
+      "usetranslation",
+      "localization"
+    ],
+    "internacionalização": [
+      "i18n",
+      "intl.",
+      "locale",
+      "usetranslation",
+      "localization"
+    ],
+    "baixa latencia": [
+      "websocket",
+      "ws://",
+      "redis",
+      "socket.io",
+      "stream"
+    ],
+    "padrao repository": [
+      "repository",
+      "repo.",
+      "repositorypattern"
+    ],
+    "repository pattern": [
+      "repository",
+      "repo.",
+      "repositorypattern"
+    ],
+    "regressões": [
+      "regression",
+      "snapshot",
+      "tomatchsnapshot"
+    ],
+    "regressoes": [
+      "regression",
+      "snapshot",
+      "tomatchsnapshot"
+    ],
+    "eventos com listeners": [
+      "listener",
+      "on(",
+      "emitter",
+      "subscribe("
+    ],
+    "events with listeners": [
+      "listener",
+      "on(",
+      "emitter",
+      "subscribe("
+    ],
+    "arquitetura orientada a eventos": [
+      "eventbus",
+      "event_bus",
+      "publish(",
+      "subscriber",
+      "listener",
+      "rabbitmq",
+      "kafka"
+    ],
+    "query handlers": [
+      "handler",
+      "query",
+      "usecase"
+    ],
+    "handlers de consulta": [
+      "handler",
+      "query",
+      "usecase"
+    ],
+    "casos de uso": [
+      "usecase",
+      "use_case",
+      "use-case"
+    ],
+    "execucao duravel": [
+      "durable",
+      "dbos",
+      "checkpoint"
+    ],
+    "durable execution": [
+      "durable",
+      "dbos",
+      "checkpoint"
+    ],
+    "orquestracao de agentes": [
+      "langgraph",
+      "orchestrat",
+      "multi-agent",
+      "agents/"
+    ],
+    "orquestracao multi-agente": [
+      "langgraph",
+      "orchestrat",
+      "multi-agent",
+      "agents/"
+    ],
+    "orchestration": [
+      "langgraph",
+      "orchestrat",
+      "multi-agent",
+      "agents/"
+    ],
+    "agentes llm": [
+      "langchain",
+      "openai",
+      "anthropic",
+      "agent",
+      "llm"
+    ],
+    "multi-agent systems": [
+      "langgraph",
+      "orchestrat",
+      "multi-agent"
+    ],
+    "monorepo": [
+      "turbo.json",
+      "pnpm-workspace",
+      "workspaces",
+      "nx.json",
+      "lerna"
+    ],
+    "monorepo (turbo)": [
+      "turbo.json",
+      "pnpm-workspace",
+      "workspaces"
+    ],
+    "turborepo": [
+      "turbo.json",
+      "turborepo"
+    ],
+    "observabilidade": [
+      "opentelemetry",
+      "metrics",
+      "tracing",
+      "grafana",
+      "prometheus",
+      "otel"
+    ],
+    "observability": [
+      "opentelemetry",
+      "metrics",
+      "tracing",
+      "grafana",
+      "prometheus",
+      "otel"
+    ],
+    "observabilidade e monitoramento": [
+      "opentelemetry",
+      "grafana",
+      "prometheus",
+      "otel"
+    ],
+    "logs": [
+      "logging",
+      "logger",
+      "log.",
+      "console.log",
+      "structlog"
+    ],
+    "tracing": [
+      "tracing",
+      "span",
+      "opentelemetry",
+      "otel"
+    ],
+    "traces": [
+      "tracing",
+      "span",
+      "opentelemetry",
+      "otel"
+    ],
+    "metrics": [
+      "metrics",
+      "prometheus",
+      "counter",
+      "histogram"
+    ],
+    "metricas": [
+      "metrics",
+      "prometheus",
+      "counter",
+      "histogram"
+    ],
+    "spans": [
+      "span",
+      "tracing",
+      "opentelemetry"
+    ],
+    "caching": [
+      "redis",
+      "cache",
+      "lru",
+      "memcached"
+    ],
+    "crud": [
+      "create",
+      "update",
+      "delete",
+      "app.post(",
+      "app.get(",
+      "@post",
+      "@get"
+    ],
+    "rest": [
+      "axios",
+      "fetch(",
+      "httpx",
+      "requests.",
+      "openapi",
+      "app.get(",
+      "app.post(",
+      "router.",
+      "client.get(",
+      "requests.get"
+    ],
+    "rest api": [
+      "axios",
+      "fetch(",
+      "httpx",
+      "requests.",
+      "openapi",
+      "app.get(",
+      "app.post(",
+      "router.",
+      "client.get(",
+      "requests.get"
+    ],
+    "apis rest": [
+      "axios",
+      "fetch(",
+      "httpx",
+      "requests.",
+      "openapi",
+      "app.get(",
+      "app.post(",
+      "router.",
+      "client.get(",
+      "requests.get"
+    ],
+    "real-time apis": [
+      "websocket",
+      "socket.io",
+      "ws://",
+      "sse"
+    ],
+    "authentication": [
+      "auth",
+      "jwt",
+      "passport",
+      "login",
+      "session"
+    ],
+    "auth": [
+      "auth",
+      "jwt",
+      "passport",
+      "login",
+      "session"
+    ],
+    "api design": [
+      "openapi",
+      "swagger",
+      "rest",
+      "graphql",
+      "grpc"
+    ],
+    "design de apis": [
+      "openapi",
+      "swagger",
+      "rest",
+      "graphql",
+      "grpc"
+    ],
+    "performance optimization": [
+      "lighthouse",
+      "memo",
+      "usememo",
+      "cache",
+      "profiler"
+    ],
+    "core web vitals": [
+      "lighthouse",
+      "lcp",
+      "cls",
+      "inp",
+      "web-vitals"
+    ],
+    "web performance": [
+      "lighthouse",
+      "web-vitals",
+      "lcp",
+      "cls"
+    ],
+    "performance web": [
+      "lighthouse",
+      "web-vitals",
+      "lcp",
+      "cls"
+    ],
+    "performance profiling": [
+      "profiler",
+      "cprofile",
+      "perf",
+      "flamegraph"
+    ],
+    "secrets management": [
+      "secrets",
+      "vault",
+      "doppler",
+      "env"
+    ],
+    "owasp": [
+      "owasp",
+      "xss",
+      "csrf",
+      "sanitize"
+    ],
+    "lgpd": [
+      "lgpd",
+      "gdpr",
+      "consent",
+      "privacy"
+    ],
+    "message queuing": [
+      "rabbitmq",
+      "amqp",
+      "kafka",
+      "sqs",
+      "queue"
+    ],
+    "ssl/tls": [
+      "ssl",
+      "tls",
+      "certificate",
+      "https",
+      "letsencrypt"
+    ],
+    "webhooks": [
+      "webhook"
+    ],
+    "subscriptions": [
+      "subscription",
+      "stripe"
+    ],
+    "supabase/postgresql": [
+      "supabase",
+      "postgres",
+      "psycopg"
+    ],
+    "fastapi/arq/pydantic": [
+      "fastapi",
+      "arq",
+      "pydantic"
+    ],
+    "react testing library": [
+      "@testing-library/react"
+    ],
+    "context api": [
+      "createcontext",
+      "usecontext"
+    ],
+    "app router": [
+      "next/navigation",
+      "app router",
+      "app/(dashboard)"
+    ],
+    "javascript moderno (es6+)": [
+      "const ",
+      "=>",
+      "async ",
+      "await "
+    ],
+    "javascript moderno": [
+      "const ",
+      "=>",
+      "async ",
+      "await "
+    ],
+    "javascript": [
+      "const ",
+      "=>",
+      "async ",
+      "await "
+    ],
+    "es5/jquery": [
+      "jquery",
+      "$(",
+      "document."
+    ],
+    "jquery": [
+      "jquery",
+      "$("
+    ],
+    "react.js": [
+      "from \"react\"",
+      "react-dom"
+    ],
+    "server-side rendering": [
+      "getserversideprops",
+      "ssr",
+      "server-side"
+    ],
+    "css3": [
+      "display: flex",
+      "grid-template",
+      ":root",
+      "flex-direction"
+    ],
+    "html5": [
+      "<!doctype html",
+      "<section",
+      "<main",
+      "<article"
+    ],
+    "gatsby": [
+      "gatsby"
+    ],
+    "storybook controls": [
+      "argtypes",
+      "storybook"
+    ],
+    "sql / banco de dados relacional": [
+      "select ",
+      "create table",
+      "psql"
+    ],
+    "sql / relational databases": [
+      "select ",
+      "create table",
+      "psql"
+    ],
+    "testes e2e": [
+      "playwright",
+      "cypress",
+      "e2e"
+    ],
+    "end-to-end testing": [
+      "playwright",
+      "cypress",
+      "e2e"
+    ],
+    "multi-tenant systems": [
+      "tenant",
+      "multi-tenant"
+    ],
+    "per-tenant": [
+      "tenant"
+    ],
+    "renderização": [
+      "render",
+      "ssr",
+      "ssg"
+    ],
+    "microsserviços": [
+      "microservice",
+      "grpc"
+    ],
+    "arquitetura limpa": [
+      "usecase",
+      "use_case",
+      "domain/"
+    ],
+    "gerenciamento de estado": [
+      "usestate",
+      "redux",
+      "zustand",
+      "store"
+    ],
+    "mvc": [
+      "controller",
+      "model",
+      "view",
+      "mvc"
+    ],
+    "arquitetura mvc": [
+      "controller",
+      "model",
+      "view",
+      "mvc"
+    ],
+    "mvc architecture": [
+      "controller",
+      "model",
+      "view",
+      "mvc"
+    ],
+    "monolithic mvc architecture": [
+      "controller",
+      "model",
+      "mvc"
+    ],
+    "biblioteca de componentes": [
+      "components/",
+      "storybook",
+      "design-system"
+    ],
+    "reusable components": [
+      "components/",
+      "storybook",
+      "design-system"
+    ],
+    "dados estruturados": [
+      "json-ld",
+      "schema.org",
+      "structured data"
+    ],
+    "sitemaps": [
+      "sitemap"
+    ],
+    "robots.txt": [
+      "robots.txt"
+    ],
+    "llms.txt": [
+      "llms.txt"
+    ],
+    "cloud-native architecture": [
+      "kubernetes",
+      "k3s",
+      "container",
+      "docker"
+    ],
+    "resilience patterns": [
+      "retry",
+      "circuit",
+      "bulkhead",
+      "timeout"
+    ],
+    "kubernetes foundations": [
+      "kubernetes",
+      "k3s",
+      "kubectl",
+      "argocd"
+    ],
+    "provedores de llm": [
+      "openai",
+      "anthropic",
+      "llm"
+    ],
+    "reranking": [
+      "rerank",
+      "reranker"
+    ],
+    "armazenamento vetorial": [
+      "pgvector",
+      "chroma",
+      "faiss",
+      "pinecone",
+      "qdrant"
+    ],
+    "servidor mcp": [
+      "mcp",
+      "modelcontextprotocol"
+    ],
+    "templates de prompt": [
+      "prompt",
+      "template"
+    ],
+    "request gating": [
+      "gating",
+      "ratelimit",
+      "rate_limit"
+    ],
+    "context assembly": [
+      "assemble",
+      "context window",
+      "build_context"
+    ],
+    "llm agents": [
+      "langchain",
+      "agent",
+      "llm"
+    ],
+    "copilots": [
+      "copilot",
+      "claude",
+      "cursor"
+    ],
+    "enforcement automatizado": [
+      "hook",
+      "lint",
+      "enforce"
+    ],
+    "data normalization": [
+      "normal",
+      "3nf",
+      "migration"
+    ],
+    "per-token cost accounting": [
+      "cost",
+      "token",
+      "usage"
+    ],
+    "front-end architecture": [
+      "components/",
+      "feature",
+      "architecture"
+    ],
+    "chromadb": [
+      "chroma"
+    ],
+    "many-page sites": [
+      "sitemap",
+      "ssg",
+      "pagination"
+    ],
+    "react 19 features": [
+      "usetransition",
+      "useactionstate",
+      "actions"
+    ],
+    "real-time data processing": [
+      "websocket",
+      "socket.io",
+      "stream"
+    ],
+    "financial dashboard ui": [
+      "chart",
+      "dashboard",
+      "recharts",
+      "d3"
+    ],
+    "agentic ai": [
+      "langchain",
+      "agent",
+      "llm"
+    ]
+  }
+}
