@@ -602,6 +602,11 @@ def generate(
     company_info = f", company: {company}" if company else ""
     typer.echo(f"✔ index.html written  (lang: {lang}, theme: {theme}{company_info})")
 
+    if company:
+        entry = inbox.find_entry(company)
+        step = inbox.step_of(company, entry) if entry else "cv-ready"
+        typer.echo(f"   step: {step}")
+
     if pdf:
         browsers = resolve_browsers_path()
         if browsers:
