@@ -2,28 +2,49 @@
 
 > Your resume. Your code. Always up to date.
 
-A free, open-source resume generator. Edit `cv.json`, run one command, get a pixel-perfect HTML file and a print-ready PDF - no third-party login, no subscription, no watermark.
+A free, open-source resume generator and application pipeline. Edit `cv.json`, run one command, get an ATS-checked PDF, and take a captured job from the browser through a tailored CV to a recorded application. Nothing is claimed on a CV that a repository cannot prove.
+
+## The loop
+
+Every application moves through the same steps, and the tool shows where it stands at each one.
+
+```
+capture   a job is saved from the browser into the queue
+tailor    answers which projects to include and which may be named
+build     cv generate writes the tailored CV and the PDF
+gate      ats-check and the skill gate refuse anything unproven
+decide    applied, skipped, or profile-only, recorded in the ledger
+```
+
+`cv inbox status` is the one screen: it counts each step, dates every JD, and reports any CV that claims a skill nothing proves.
 
 ## Project structure
 
 ```
 cv/
-├── cv.json             ← base resume data in English (edit this)
-├── cv-pt.json          ← base resume data in Portuguese-BR
-├── generate.py         ← template engine + PDF exporter
-├── inbox.py            ← local capture endpoint for the browser extension
-├── extension/          ← Chrome extension: "Salvar no CV" on a LinkedIn job
-├── requirements.txt    ← Python dependencies
-├── messages/           ← recruiter messages (one .md per opportunity)
-├── resume-en.pdf       ← generated base PDF (English)
-├── resume-pt.pdf       ← generated base PDF (Portuguese-BR)
-└── companies/
+├── cv.json             base resume in English (edit this)
+├── cv-pt.json          base resume in Portuguese-BR
+├── generate.py         renderer and PDF exporter
+├── ats.py              deterministic ATS gates and scorecard
+├── search.py           job search and fit ranking
+├── inbox.py            capture queue, ledger, steps, local endpoint
+├── evidence.py         scan repositories for real usage of a skill
+├── skills.py           the skill-evidence gate and the gap ledger
+├── guards.py           claim verification and name approval
+├── mailscan.py         read application confirmations from Gmail
+├── staleness.py        fingerprints so an outdated PDF is visible
+├── extension/          Chrome extension: capture and the panel
+├── install.sh          install the package and Playwright chromium
+└── companies/          tailored CVs, one folder per application
     └── {company}/
-        ├── cv-en.json  ← tailored resume data for this company
-        └── <CandidateName>-en.pdf  ← generated tailored PDF
+        ├── description.md
+        ├── cv-en.json
+        └── <Name>-en.pdf
 ```
 
-> `index.html` is a build artifact and is intentionally git-ignored.
+`companies/`, `inbox.json`, `project-names.json`, `gaps.json` and the Gmail
+client and token are gitignored: they hold personal data and the identity of
+proprietary work. `index.html` is a build artifact and is ignored too.
 
 ## Quick start
 
@@ -32,7 +53,7 @@ cv/
 1. **Copy the template:**
    ```bash
    cp cv.example.json cv.json       # English resume template
-   cp cv-pt.example.json cv-pt.json  # Portuguese resume template
+   cp cv-pt.example.json cv-pt.json # Portuguese resume template
    ```
 
 2. **Edit your data:**
@@ -51,60 +72,81 @@ Your generated PDFs will be `resume-en.pdf` and `resume-pt.pdf` in the root dire
 
 ### For existing candidates
 
-The `cv.json` and `cv-pt.json` files are gitignored - they contain your personal data. If you've already been using this tool, your existing files will continue to work.
+The `cv.json` and `cv-pt.json` files are gitignored, because they contain your personal data. If you have been using this tool, your existing files keep working.
 
 ## Commands
 
 ```bash
-cv generate                             # render cv.json → index.html (classic, English)
-cv generate --pdf                       # + export resume-en.pdf
-cv generate --lang pt --pdf             # Portuguese version
-cv generate --theme modern --pdf        # different theme
-cv generate --company <id> --pdf      # tailored: companies/<id>/<CandidateName>-en.pdf
-cv new acme                             # scaffold companies/acme/cv-en.json from base cv.json
-cv translate --text "Your text here" --from en --to pt  # translate with keyword preservation
-cv ats-check --company <id>           # verify the PDF parses in ATS and score it
-cv search "react senior remote"         # search job sources and rank the best matches
+cv generate --company <id> --lang pt --pdf      # build a tailored CV and PDF
+cv status                                       # the queue, the CVs, the next step
+cv stale [--fix]                                # PDFs older than what they are built from
+cv ats-check --company <id> --jd companies/<id>/description.md
+cv inbox list [--all|--pending]                 # the queue by step
+cv inbox status                                 # counts, JD dates, unproven claims
+cv inbox next                                   # the oldest capture that still needs a CV
+cv inbox applied <slug>                         # record that it was sent
+cv inbox skip <slug> -r "why"                   # decline it, with your own reason
+cv inbox reconsider <slug>                      # take a decline back
+cv inbox profile <slug>                         # no CV wanted, LinkedIn profile only
+cv inbox requeue <slug>                         # bring a profile-only capture back
+cv inbox mail [--apply] [--all]                 # record applied from Gmail confirmations
+cv gaps [--soft]                                # skills the postings ask for that nothing proves
+cv gaps refresh                                 # rescan repositories, rebuild the ledger
+cv gaps check                                   # fail any CV that claims an unproven skill
+cv evidence --probe aws                         # where real usage exists
+cv names check                                  # docs that name an unapproved project
+cv claims verify                                # re-derive every quantified figure
+cv search ...                                   # see Job search below
 ```
 
 | Option | Default | Description |
 |---|---|---|
-| `--company / -c` | - | Company ID - reads/writes under `companies/{id}/` |
+| `--company / -c` | - | Company ID, reads and writes under `companies/{id}/` |
 | `--lang / -l` | `en` | Language code (`en`, `pt`) |
 | `--theme / -t` | `classic` | Theme: `classic`, `modern`, `minimal` |
 | `--pdf` | off | Export PDF after rendering HTML |
 
 ## ATS checking
 
-Generated PDFs are verified against how applicant tracking systems parse them with `cv ats-check`. It enforces nine format gates (text layer, single column, reading order, semantic sections, date format, character set, contact info, content completeness, file size) and prints a 0-100 scorecard mirroring the categories used by third-party checkers.
+Generated PDFs are verified against how applicant tracking systems parse them with `cv ats-check`. It enforces nine format gates (text layer, single column, reading order, semantic sections, date format, character set, contact info, content completeness, file size) and prints a 0-100 scorecard mirroring the categories third-party checkers use.
 
 ```bash
-cv ats-check --company <id>            # gates + scorecard for a company CV
+cv ats-check --company <id>                      # gates + scorecard for a company CV
 cv ats-check --company <id> --jd companies/<id>/description.md  # add JD keyword coverage
-cv ats-check --pdf resume-en.pdf --strict  # exit 1 on any gate failure or a score under 90
-cv ats-check --company <id> --judge    # append an optional LLM judge pass (never gates)
+cv ats-check --pdf resume-en.pdf --strict        # exit 1 on any gate failure or a score under 90
+cv ats-check --company <id> --judge              # append an optional LLM judge pass (never gates)
 ```
 
 Any gate failure exits 1. With `--strict`, the command also exits 1 when the overall score is below `--min-score` (default 90) or JD coverage is below `--min-coverage` (default 0.60). `--json` emits a machine-readable report. When `--company` is set and no `--jd` is given, the JD is auto-discovered from `companies/{id}/description.md` if present.
 
 The CLI flags, exit codes, and `--json` output are the tool's API: a major version bump may change them, and gates exiting 1 on a failed check is the stable contract.
 
+## The honesty gates
+
+Three gates decide what may appear on a CV instead of trusting the author, and each one exits non-zero rather than being a convention.
+
+- **Claims.** Every quantified figure a CV asserts is re-derived from the repositories, so a number that cannot be reproduced is caught before it ships. `cv claims verify`.
+- **Names.** A project name is publishable only where the operator approved it for that application, and never in prose that reaches a stranger. `cv names check`.
+- **Skill evidence.** A skill is claimable only where authored source code uses it. `cv gaps refresh` scans the repositories and builds a ledger; `cv generate` refuses to render a CV that claims a skill neither evidenced, soft, nor allowed. `cv gaps` reports what the postings ask for that nothing proves, which is the list of projects worth building next.
+
+The evidence scanner is deliberately a candidate finder. A hit is read before it becomes a claim, docs and manifests do not count as usage, bare words are matched whole (so `ecs` does not match `specs`), and the scanner's own probe files are excluded from their own evidence.
+
 ## Job search
 
 `cv search` queries remote job boards with a free-text query and ranks the results by how well the CV covers each posting.
 
 ```bash
-cv search "react senior remote"                # remotive, ranked by fit
-cv search "typescript frontend" --source remoteok
-cv search --import linkedin-export.json        # rank a LinkedIn extension export
-cv search "react" --ingest 1                   # write the top match's JD to companies/<slug>/description.md
+cv search "react senior remote"                        # programathor, ranked by fit
+cv search "typescript frontend" --source linkedin --since week --limit 10
+cv search --import linkedin-export.json                # rank a browser export
+cv search "react" --ingest 1                           # write the top match's JD to companies/<slug>/description.md
 ```
 
-The fit score is a ranking signal, not a match rate: the CV fit is the base, and a query multiplies it (up to 1.5x), so a typed query boosts within-stack matches but never lifts an off-stack posting (a C#/Angular job can't ride a "full stack" title to the top of a JS/TS CV). CV fit blends distinctive JD terms, the CV's skills found in the posting, and title overlap; generic prose in English and Portuguese is ignored and diacritics are folded. Each result shows which of your skills the posting matches. Around 45-65% is a strong match for a generalist CV; low-signal sources compress everything toward 15-25%. Rank against a tailored CV with `--cv companies/<slug>/cv-en.json` for a sharper signal.
+The fit score is a ranking signal, not a match rate: the CV fit is the base, and a query multiplies it (up to 1.5x), so a typed query boosts within-stack matches but never lifts an off-stack posting. Each result shows which of your skills the posting matches. Around 45-65% is a strong match for a generalist CV.
 
-Sources: `programathor` (default, Brazilian dev board; serves a ~15-job recent feed), `remotive`, `remoteok`, `linkedin` (guest endpoint, best-effort and often blocked), and `gupy` (best-effort, frequently unreachable). Client-rendered boards (vagas.com.br, GeekHunter, inhire) aren't scrapable and belong on the `--import` path. `--json` emits a machine-readable list. `--ingest N` writes `companies/<slug>/description.md` and prints the next pipeline commands.
+Sources: `programathor` (default), `remotive`, `remoteok`, `linkedin`, and `gupy`. The `linkedin` source reads LinkedIn's guest endpoints: listing cards, then a description per shown result (bounded by `--limit`), walkable past the ten-per-page cap. Of LinkedIn's search filters, `--since` (`24h`, `week`, `month`), `--location` and `--remote` are passed through, and the ones LinkedIn ignores server-side are deliberately not offered. `--json` emits a machine-readable list; `--no-detail` skips the description fetches; `--ingest N` writes `companies/<slug>/description.md` and prints the next commands.
 
-## Inbox (browser capture)
+## The inbox and the extension
 
 Pick a job in your own browser and hand it to the pipeline without copy-paste.
 
@@ -118,31 +160,52 @@ Pick a job in your own browser and hand it to the pipeline without copy-paste.
    **Developer mode**, choose **Load unpacked**, and select `extension/`.
    Click the extension icon, paste the token, **Save**, then **Test**.
 
-3. Open a LinkedIn job. A **Salvar no CV** button appears bottom-right. Click
-   it. The JD is written to `companies/<slug>/description.md` and queued.
+3. Open a LinkedIn job. The button in the header shows where that job already
+   is in the pipeline: **Apply with CV**, **CV pending**, **CV ready**, **Applied**,
+   **Skipped**, or **Profile**. Clicking it captures the JD to
+   `companies/<slug>/description.md`.
 
-4. Work the queue:
+4. Tailor and build, one capture at a time:
 
    ```bash
-   cv inbox list           # what is waiting
-   cv inbox next           # path of the oldest capture
-   cv inbox done <slug>    # mark it processed
+   cv inbox next          # the oldest capture that still needs a CV
+   cv tailor <slug>       # the questions to answer for this posting
+   cv generate --company <slug> --lang pt --pdf
+   cv inbox applied <slug>   # after the application goes out
    ```
 
-Tailoring is still a separate step, because it needs answers about which
-projects to include and which may be named. See
-`~/lab/docs/cv/adr/0002-ask-before-naming-projects.md`.
+The toolbar popup is the panel: tabs for **Captured** (captured, cv-ready and
+profile-only), **Applied** and **Skipped**, each with its count. Every row has
+its Job and Apply links and the actions that belong to that step: **Mark applied**,
+**Decline** with a reason you write, and **Reconsider** for a decline. A step that
+has no meaning on a capture is not offered there, and the same impossibility is
+refused by the API.
 
-Two notes on what this does and does not do. It does not read LinkedIn on your
-behalf: you browse, you click, one job at a time. And the endpoint requires the
-token because a page you visit can otherwise POST to localhost; the listener is
-bound to `127.0.0.1` and writes only under `companies/`.
+A capture can be recorded as **applied** from four places, each a record that
+the application was sent rather than an inference: the CLI, the panel, Gmail
+confirmations, or LinkedIn's own Applied list via the **Reconcile with the CV
+ledger** button on that page. A posting that needs no tailored CV, because the
+apply uses only the LinkedIn profile, is marked **profile** and leaves the
+pending list.
+
+## Reading your mailbox
+
+`cv inbox mail` reads application confirmations from Gmail and reports the
+captures they match, then records them with `--apply`. Dry by default, so a
+run that matches nothing writes nothing.
+
+A confirmation identifies a capture by the pair the pipeline already uses, the
+company and the role as a phrase. It must name the company and the role; a
+confirmation naming only the company counts only where that company has one
+capture, and the role alone never decides. The sender is reported as evidence,
+never required. A confirmation that names no capture, or names one already
+applied, is reported rather than dropped.
 
 ## Themes
 
 | Theme | Font | Accent |
 |---|---|---|
-| `classic` *(default)* | Volkhov + PT Sans | Black - original style |
+| `classic` *(default)* | Volkhov + PT Sans | Black |
 | `modern` | Inter | Blue `#2563eb` on name, titles & dots |
 | `minimal` | IBM Plex Sans | Dark grey, uppercase section labels, light borders |
 
@@ -163,11 +226,11 @@ cv generate --lang pt
 cv generate --lang pt --pdf --theme modern
 ```
 
-> **Note:** To add support for more languages, create a new `cv-{lang}.json` file and use `--lang {lang}`.
+To add more languages, create a `cv-{lang}.json` file and use `--lang {lang}`.
 
 ## How to update your resume
 
-**Only edit `cv.json`** - `index.html` is auto-generated and will be overwritten on the next build.
+**Only edit `cv.json`.** `index.html` is auto-generated and is overwritten on the next build.
 
 ### Personal info
 
@@ -184,11 +247,9 @@ cv generate --lang pt --pdf --theme modern
 }
 ```
 
-The header renders on **two lines**:
-- **Line 1:** phone | email | linkedin
-- **Line 2:** portfolio | github | location
-
-`portfolio` and `github` are optional. All other fields are required.
+The header renders on two lines: phone, email, linkedin on the first, and
+portfolio, github, location on the second. `portfolio` and `github` are
+optional; all other fields are required.
 
 ### Add an experience entry
 
@@ -212,6 +273,9 @@ The header renders on **two lines**:
 "tags": ["...", "New Skill"]
 ```
 
+A tag you add is checked against the skill-evidence ledger. If nothing proves it
+you have a gap to close, a reason to record, or a tag to drop.
+
 ### Add a language
 
 ```json
@@ -222,7 +286,7 @@ The header renders on **two lines**:
 
 ### Add a salary expectation (company CVs)
 
-Optional field - renders as an extra line in the CV header when present. Omit it for the base CV.
+Optional field, for company CVs. Omit it for the base CV.
 
 ```json
 "salary_expectation": {
@@ -236,31 +300,29 @@ Optional field - renders as an extra line in the CV header when present. Omit it
 
 ## Translation with keyword preservation
 
-When translating your CV to multiple languages, technical terms (React, Design Systems, etc.) should remain in English for consistency. Use the built-in `translate` command:
+When translating your CV, technical terms (React, Design Systems, and so on)
+should remain in English for consistency. Use the built-in `translate` command:
 
 ```bash
 cv translate --text "Your summary here" --from en --to pt
 ```
 
-The command automatically:
-1. Replaces English keywords with placeholders (e.g., React → {TECH_0})
-2. Translates the text to your target language
-3. Restores the keywords
+The command replaces English keywords with placeholders, translates the text,
+then restores the keywords. Supported keywords include React, TypeScript,
+Design Systems, TDD, and AWS.
 
-Supported keywords include: React, TypeScript, Design Systems, TDD, AWS, etc.
-
-> **Note:** Requires `google-translate-api`. Install with: `pip install google-translate-api`
+> **Note:** Requires `google-translate-api`. Install with `pip install google-translate-api`.
 
 ## Page layout & margins
 
-Content flows naturally across pages - no manual page splitting.
-Playwright paginates automatically, respecting `break-inside: avoid` on every
-entry so items are never split mid-bullet.
+Content flows naturally across pages, with no manual page splitting. Playwright
+paginates automatically, respecting `break-inside: avoid` on every entry so
+items are never split mid-bullet.
 
 To change the margin on all four sides, edit one constant in `generate.py`:
 
 ```python
-PAGE_MARGIN = 50  # px - applies to screen padding, @page, and Playwright
+PAGE_MARGIN = 50  # px: screen padding, @page, and Playwright
 ```
 
 ## Typography (classic theme)
@@ -273,49 +335,9 @@ PAGE_MARGIN = 50  # px - applies to screen padding, @page, and Playwright
 | Role / Position | PT Sans Regular | 15px |
 | Body / Bullets | PT Sans Regular | 13px |
 
-Fonts are loaded from Google Fonts. For fully offline use, download and self-host **Volkhov** and **PT Sans**.
+Fonts are loaded from Google Fonts. For fully offline use, download and
+self-host **Volkhov** and **PT Sans**.
 
 ## License
 
-MIT - use, fork, share freely.
-
-## Roadmap
-
-> Vision: evolve cv into a personal CV automation pipeline - one command from a recruiter message to a tailored PDF.
-
-### Phase 1 - Manual message drop *(now)*
-Drop LinkedIn recruiter messages as `.md` files into `./messages/`.
-For each message, create a tailored `companies/{company}/cv-en.json` and generate the PDF.
-
-```
-messages/
-└── recruiter-name.md       ← paste the message here
-
-companies/
-└── recruiter-name/
-    ├── cv-en.json           ← tailored resume data
-    └── <CandidateName>-en.pdf
-```
-
-Then:
-```bash
-cv generate --company recruiter-name --lang en --pdf
-```
-
-### Phase 2 - Automated generation *(planned)*
-Parse `./messages/*.md` to extract role requirements automatically, then generate a tailored `cv-{company}-en.json` using an AI-assisted pipeline - no manual editing required.
-
-### Phase 3 - LinkedIn integration *(manual selection, done)*
-
-Browse LinkedIn yourself and click save on a job you want. The extension sends
-that JD to a local endpoint, which queues it as `companies/<slug>/description.md`.
-Nothing scrapes LinkedIn: the operator selects, one job at a time. See
-[Inbox (browser capture)](#inbox-browser-capture).
-
-Still open: turning a queued JD into a tailored CV without a human answering
-the project and naming questions.
-
----
-
-> **Project rename:** As scope expands beyond a static CV generator, a rename may better reflect the automation-first direction. TBD.
-
+MIT: use, fork, share freely.
