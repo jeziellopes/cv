@@ -455,6 +455,7 @@ const STEP_LABEL = {
   "cv-ready": "CV ready",
   applied: "Applied",
   skipped: "Skipped",
+  profile: "Profile",
 };
 
 let jobState = null;   // {found, slug, step, apply_url} when this job is known
@@ -508,7 +509,7 @@ async function markApplied(button) {
 
 async function onButtonClick(button) {
   const step = currentStep();
-  if (step === "cv-ready") return openApply();
+  if (step === "cv-ready" || step === "profile") return openApply();
   if (step === "applied" || step === "skipped") return;
   // none: first capture. captured: the JD is queued, re-clicking syncs it.
   return onCapture(button);
@@ -527,7 +528,7 @@ function refreshButtons() {
     : `CV pipeline: ${STEP_LABEL[step] || step}`;
 
   const mark = document.getElementById(APPLIED_BUTTON_ID);
-  const want = step === "cv-ready";
+  const want = step === "cv-ready" || step === "profile";
   if (want && !mark) {
     const created = document.createElement("button");
     created.id = APPLIED_BUTTON_ID;

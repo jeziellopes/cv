@@ -272,7 +272,7 @@ def make_handler(token: str, base_dir: Path):
 
         def do_POST(self) -> None:  # noqa: N802
             if self.path not in ("/capture", "/diagnose", "/applied", "/reconcile",
-                                 "/skip", "/reconsider"):
+                                 "/skip", "/reconsider", "/profile", "/unprofile"):
                 self._send(404, {"ok": False, "error": "not found"})
                 return
             if not self._authorized():
@@ -320,7 +320,7 @@ def make_handler(token: str, base_dir: Path):
                                  "count": len(applied)})
                 return
 
-            if self.path in ("/skip", "/reconsider"):
+            if self.path in ("/skip", "/reconsider", "/profile", "/unprofile"):
                 identifier = (payload.get("slug") or payload.get("url") or "")
                 try:
                     if self.path == "/skip":
@@ -328,8 +328,14 @@ def make_handler(token: str, base_dir: Path):
                                             str(payload.get("reason") or ""),
                                             base_dir)
                         step = "skipped"
-                    else:
+                    elif self.path == "/reconsider":
                         slug = mark_reconsidered(identifier, base_dir)
+                        step = "captured"
+                    elif self.path == "/profile":
+                        slug = mark_profile(identifier, base_dir)
+                        step = "profile"
+                    else:
+                        slug = mark_captured(identifier, base_dir)
                         step = "captured"
                 except StepTransitionError as exc:
                     self._send(409, {"ok": False, "code": exc.identity,
@@ -422,6 +428,48 @@ def cv_gaps(slug: str, base_dir: Optional[Path] = None) -> Optional[dict[str, li
     return found
 
 
+def mark_profile(identifier: str, base_dir: Optional[Path] = None) -> Optional[str]:
+    """Record that an application uses only the LinkedIn profile, so no CV.
+
+    Refuses a capture already applied or declined: those have a settled path.
+    """
+    entry = job_for(identifier, base_dir)
+    if not entry:
+        return None
+    status = str(entry.get("status", "new")).lower()
+    if status in _APPLIED:
+        raise StepTransitionError(E_ALREADY_APPLIED,
+                                  "the application was already sent")
+    if status in _SKIPPED:
+        raise StepTransitionError(E_NOT_CAPTURED,
+                                  "a declined posting must be reconsidered first")
+    entries = load_ledger()
+    for candidate in entries:
+        if candidate.get("slug") == entry.get("slug"):
+            candidate["status"] = "profile"
+            candidate["profile_at"] = datetime.now(timezone.utc).isoformat(
+                timespec="seconds")
+    save_ledger(entries)
+    return entry.get("slug")
+
+
+def mark_captured(identifier: str, base_dir: Optional[Path] = None) -> Optional[str]:
+    """Return a profile-only posting to the queue, so a CV is wanted again."""
+    entry = job_for(identifier, base_dir)
+    if not entry:
+        return None
+    if str(entry.get("status", "new")).lower() not in _PROFILE:
+        raise StepTransitionError(E_NOT_PROFILE,
+                                  "only a profile-only posting can rejoin the queue")
+    entries = load_ledger()
+    for candidate in entries:
+        if candidate.get("slug") == entry.get("slug"):
+            candidate["status"] = "new"
+            candidate.pop("profile_at", None)
+    save_ledger(entries)
+    return entry.get("slug")
+
+
 def jd_date(slug: str, base_dir: Optional[Path] = None) -> str:
     """The date the capture's JD file was last written, or empty."""
     base_dir = base_dir or BASE_DIR
@@ -431,18 +479,22 @@ def jd_date(slug: str, base_dir: Optional[Path] = None) -> str:
     return datetime.fromtimestamp(jd.stat().st_mtime).date().isoformat()
 
 
-# The capture lifecycle: captured -> cv-ready -> applied, and a posting passed
-# over on purpose is skipped. Only applied and skipped are stored; "cv-ready" is
-# read from the files on disk, so regenerating or deleting a CV moves the step
-# without anything needing to be kept in sync.
-STEPS = ("captured", "cv-ready", "applied", "skipped")
+# The capture lifecycle: captured -> cv-ready -> applied, a posting passed over
+# is skipped, and one applied straight from the LinkedIn profile needs no
+# tailored CV and is "profile". Only applied, skipped and profile are stored;
+# "cv-ready" is read from the files on disk, so regenerating or deleting a CV
+# moves the step without anything needing to be kept in sync.
+STEPS = ("captured", "cv-ready", "applied", "skipped", "profile")
 _APPLIED = {"applied"}
 _SKIPPED = {"skipped", "rejected", "declined"}
+_PROFILE = {"profile", "profile-only"}
 
 # Returned in `code` so a caller branches on the identity, never on the message.
 E_NO_CAPTURE = "E_NO_CAPTURE"
 E_ALREADY_APPLIED = "E_ALREADY_APPLIED"
 E_NOT_SKIPPED = "E_NOT_SKIPPED"
+E_NOT_PROFILE = "E_NOT_PROFILE"
+E_NOT_CAPTURED = "E_NOT_CAPTURED"
 
 
 class StepTransitionError(Exception):
@@ -461,14 +513,17 @@ class StepTransitionError(Exception):
 def step_of(slug: str, entry: dict, base_dir: Optional[Path] = None) -> str:
     """Which step a capture has reached.
 
-    Skipped is checked first: a posting deliberately passed over must not become
-    pending again because a CV happens to sit beside it.
+    The stored steps are checked before the derived one, so a posting that has a
+    CV next to it does not read as pending again when it was skipped, applied or
+    confined to the LinkedIn profile.
     """
     status = str(entry.get("status", "new")).lower()
-    if status in _SKIPPED:
-        return "skipped"
     if status in _APPLIED:
         return "applied"
+    if status in _SKIPPED:
+        return "skipped"
+    if status in _PROFILE:
+        return "profile"
     return "cv-ready" if has_cv(slug, base_dir) else "captured"
 
 
@@ -708,6 +763,40 @@ def reconsider_command(identifier: str) -> None:
     typer.echo(f"{entry['slug']}: {before} -> {after}")
 
 
+@app.command("profile")
+def profile_command(identifier: str) -> None:
+    """Record that an application uses only the LinkedIn profile, no CV."""
+    entry = job_for(identifier)
+    if not entry:
+        typer.echo(f"No capture matching {identifier}.", err=True)
+        raise typer.Exit(code=1)
+    before = step_of(entry["slug"], entry)
+    try:
+        mark_profile(identifier)
+    except StepTransitionError as exc:
+        typer.echo(f"{exc.identity}: {exc.detail}", err=True)
+        raise typer.Exit(code=1)
+    after = step_of(entry["slug"], find_entry(entry["slug"]))
+    typer.echo(f"{entry['slug']}: {before} -> {after}")
+
+
+@app.command("requeue")
+def requeue_command(identifier: str) -> None:
+    """Return a profile-only posting to the queue, so a CV is wanted again."""
+    entry = job_for(identifier)
+    if not entry:
+        typer.echo(f"No capture matching {identifier}.", err=True)
+        raise typer.Exit(code=1)
+    before = step_of(entry["slug"], entry)
+    try:
+        mark_captured(identifier)
+    except StepTransitionError as exc:
+        typer.echo(f"{exc.identity}: {exc.detail}", err=True)
+        raise typer.Exit(code=1)
+    after = step_of(entry["slug"], find_entry(entry["slug"]))
+    typer.echo(f"{entry['slug']}: {before} -> {after}")
+
+
 def find_entry(slug: str) -> Optional[dict]:
     for entry in load_ledger():
         if entry.get("slug") == slug:
@@ -770,12 +859,14 @@ def status_command() -> None:
     ready = [e for e in entries if step[e.get("slug", "")] == "cv-ready"]
     applied = [e for e in entries if step[e.get("slug", "")] == "applied"]
     skipped = [e for e in entries if step[e.get("slug", "")] == "skipped"]
+    profile = [e for e in entries if step[e.get("slug", "")] == "profile"]
     with_link = [e for e in entries if e.get("apply_url")]
 
     typer.echo(f"  captures         {len(entries)}")
     typer.echo(f"  CV ready         {len(ready)}")
     typer.echo(f"  applied          {len(applied)}")
     typer.echo(f"  skipped          {len(skipped)}")
+    typer.echo(f"  profile only     {len(profile)}")
     typer.echo(f"  pending CV       {len(pending)}")
     typer.echo(f"  with apply link  {len(with_link)}")
 
