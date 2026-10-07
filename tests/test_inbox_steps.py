@@ -330,12 +330,13 @@ def test_profile_is_its_own_step(base):
     assert inbox.jobs(base)[0]["step"] == "profile"
 
 
-def test_mark_profile_refuses_an_applied_capture(base):
+def test_mark_profile_keeps_an_applied_capture_applied(base):
+    """A role that needs no CV can still be flagged after the email marked it."""
     inbox.save_capture(PAYLOAD, base)
     inbox.mark_applied("projuris", base)
-    with pytest.raises(inbox.StepTransitionError) as caught:
-        inbox.mark_profile("projuris", base)
-    assert caught.value.identity == inbox.E_ALREADY_APPLIED
+    assert inbox.mark_profile("projuris", base) == "projuris"
+    assert inbox.step_of("projuris", inbox.load_ledger()[0], base) == "applied"
+    assert inbox.load_ledger()[0]["profile_only"] is True
 
 
 def test_mark_profile_refuses_a_declined_capture(base):
@@ -367,6 +368,18 @@ def test_profile_endpoints_round_trip(server):
     assert status == 200 and body["step"] == "profile"
     status, body = _call("POST", base + "/unprofile", {"slug": "projuris"}, token)
     assert status == 200 and body["step"] == "captured"
+
+
+def test_status_reports_pending_apply_separately(base):
+    """Pending apply counts what needs applying; pending CV only what lacks one."""
+    from typer.testing import CliRunner
+    inbox.save_capture(PAYLOAD, base)
+    inbox.mark_profile("projuris", base)
+    inbox.save_capture(dict(PAYLOAD, company="Outra", title="Backend",
+                            url="https://x/2"), base)
+    result = CliRunner().invoke(inbox.app, ["status"])
+    assert "pending apply" in result.output
+    assert "pending CV" in result.output
 
 
 def test_profile_echoes_the_transition(base):

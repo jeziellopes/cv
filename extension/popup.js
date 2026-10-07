@@ -139,6 +139,13 @@ function jobRow(job) {
 
   row.append(head, slug, actions);
 
+  if (job.profile_only) {
+    const note = document.createElement("p");
+    note.className = "reason";
+    note.textContent = "No tailored CV: applied with the LinkedIn profile.";
+    row.append(note);
+  }
+
   if (job.step === "skipped") {
     const reason = document.createElement("p");
     reason.className = "reason";
