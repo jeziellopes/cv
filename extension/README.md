@@ -33,9 +33,9 @@ cv inbox next          # the path of the oldest capture with no CV
 cv inbox applied acme  # record that this one was sent
 ```
 
-The toolbar popup is the panel: tabs for **Captured** (the active queue),
-**Applied** and **Skipped**, each with its count and its Job and Apply links.
-The rows carry the step and its actions.
+The toolbar popup is the panel: tabs for **Captured** (the active queue:
+captured, cv-ready and profile-only), **Applied** and **Skipped**, each with
+its count and its Job and Apply links. The rows carry the step and its actions.
 
 Each row also has a **Decline** field: type why you are passing on a posting, in
 your own words, and it is recorded with the step. A declined posting shows the

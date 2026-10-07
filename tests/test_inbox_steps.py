@@ -320,3 +320,58 @@ def test_reconsider_endpoint_refuses_a_capture_that_was_not_declined(server):
     _call("POST", base + "/capture", PAYLOAD, token)
     status, body = _call("POST", base + "/reconsider", {"slug": "projuris"}, token)
     assert status == 409 and body["code"] == inbox.E_NOT_SKIPPED
+
+
+def test_profile_is_its_own_step(base):
+    inbox.save_capture(PAYLOAD, base)
+    assert inbox.jobs(base)[0]["step"] == "captured"
+    assert inbox.mark_profile("projuris", base) == "projuris"
+    assert inbox.step_of("projuris", inbox.load_ledger()[0], base) == "profile"
+    assert inbox.jobs(base)[0]["step"] == "profile"
+
+
+def test_mark_profile_refuses_an_applied_capture(base):
+    inbox.save_capture(PAYLOAD, base)
+    inbox.mark_applied("projuris", base)
+    with pytest.raises(inbox.StepTransitionError) as caught:
+        inbox.mark_profile("projuris", base)
+    assert caught.value.identity == inbox.E_ALREADY_APPLIED
+
+
+def test_mark_profile_refuses_a_declined_capture(base):
+    inbox.save_capture(PAYLOAD, base)
+    inbox.mark_skipped("projuris", "", base)
+    with pytest.raises(inbox.StepTransitionError) as caught:
+        inbox.mark_profile("projuris", base)
+    assert caught.value.identity == inbox.E_NOT_CAPTURED
+
+
+def test_requeue_returns_a_profile_posting_to_captured(base):
+    inbox.save_capture(PAYLOAD, base)
+    inbox.mark_profile("projuris", base)
+    assert inbox.mark_captured("projuris", base) == "projuris"
+    assert inbox.step_of("projuris", inbox.load_ledger()[0], base) == "captured"
+
+
+def test_requeue_refuses_a_capture_that_is_not_profile(base):
+    inbox.save_capture(PAYLOAD, base)
+    with pytest.raises(inbox.StepTransitionError) as caught:
+        inbox.mark_captured("projuris", base)
+    assert caught.value.identity == inbox.E_NOT_PROFILE
+
+
+def test_profile_endpoints_round_trip(server):
+    base, token, _ = server
+    _call("POST", base + "/capture", PAYLOAD, token)
+    status, body = _call("POST", base + "/profile", {"slug": "projuris"}, token)
+    assert status == 200 and body["step"] == "profile"
+    status, body = _call("POST", base + "/unprofile", {"slug": "projuris"}, token)
+    assert status == 200 and body["step"] == "captured"
+
+
+def test_profile_echoes_the_transition(base):
+    from typer.testing import CliRunner
+    inbox.save_capture(PAYLOAD, base)
+    result = CliRunner().invoke(inbox.app, ["profile", "projuris"])
+    assert result.exit_code == 0
+    assert "-> profile" in result.output

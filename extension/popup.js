@@ -11,18 +11,20 @@ const STEP_LABEL = {
   "cv-ready": "CV ready",
   applied: "applied",
   skipped: "skipped",
+  profile: "Profile only",
 };
 
 // Tabs group the steps by what needs a decision. "Captured" is the active
-// queue, so it holds both captured and cv-ready; the row badge keeps the two
-// apart.
+// queue, so it holds captured, cv-ready and profile-only; the row badge keeps
+// them apart.
 const TAB_LABEL = { active: "Captured", applied: "Applied", skipped: "Skipped" };
 let activeTab = "active";
 let allJobs = [];
 
 function tabMatches(job, tab) {
   if (tab === "active") {
-    return job.step === "captured" || job.step === "cv-ready";
+    return job.step === "captured" || job.step === "cv-ready"
+      || job.step === "profile";
   }
   return job.step === tab;
 }
