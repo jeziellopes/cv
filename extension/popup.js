@@ -13,6 +13,20 @@ const STEP_LABEL = {
   skipped: "skipped",
 };
 
+// Tabs group the steps by what needs a decision. "Captured" is the active
+// queue, so it holds both captured and cv-ready; the row badge keeps the two
+// apart.
+const TAB_LABEL = { active: "Captured", applied: "Applied", skipped: "Skipped" };
+let activeTab = "active";
+let allJobs = [];
+
+function tabMatches(job, tab) {
+  if (tab === "active") {
+    return job.step === "captured" || job.step === "cv-ready";
+  }
+  return job.step === tab;
+}
+
 function setStatus(message, kind) {
   const el = $("status");
   el.textContent = message || "";
@@ -159,7 +173,7 @@ function jobRow(job) {
 async function renderJobs() {
   const list = $("list");
   list.textContent = "";
-  const res = await send({ type: "jobs", limit: 25 });
+  const res = await send({ type: "jobs", limit: 50 });
   if (!res || !res.ok) {
     const empty = document.createElement("p");
     empty.className = "muted";
@@ -168,11 +182,27 @@ async function renderJobs() {
     list.append(empty);
     return;
   }
-  const jobs = res.jobs || [];
+  allJobs = res.jobs || [];
+  renderTab();
+}
+
+function renderTab() {
+  const list = $("list");
+  list.textContent = "";
+
+  // The tab labels carry their count, so the sizes read at a glance.
+  for (const button of document.querySelectorAll("#tabs .tab")) {
+    const tab = button.dataset.tab;
+    const count = allJobs.filter((job) => tabMatches(job, tab)).length;
+    button.textContent = `${TAB_LABEL[tab]} (${count})`;
+    button.classList.toggle("active", tab === activeTab);
+  }
+
+  const jobs = allJobs.filter((job) => tabMatches(job, activeTab));
   if (!jobs.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
-    empty.textContent = "Nothing captured yet.";
+    empty.textContent = "Nothing here yet.";
     list.append(empty);
     return;
   }
@@ -184,4 +214,10 @@ document.addEventListener("DOMContentLoaded", () => {
   renderJobs();
   $("save").addEventListener("click", saveConfig);
   $("test").addEventListener("click", test);
+  for (const button of document.querySelectorAll("#tabs .tab")) {
+    button.addEventListener("click", () => {
+      activeTab = button.dataset.tab;
+      renderTab();
+    });
+  }
 });
