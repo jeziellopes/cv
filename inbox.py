@@ -431,24 +431,26 @@ def cv_gaps(slug: str, base_dir: Optional[Path] = None) -> Optional[dict[str, li
 def mark_profile(identifier: str, base_dir: Optional[Path] = None) -> Optional[str]:
     """Record that an application uses only the LinkedIn profile, so no CV.
 
-    Refuses a capture already applied or declined: those have a settled path.
+    A refusal only for a declined capture. An applied capture may still be
+    flagged as profile-only: the point is which roles want a tailored CV, and an
+    email confirmation does not change that, so the applied step is kept and the
+    profile marker is added next to it.
     """
     entry = job_for(identifier, base_dir)
     if not entry:
         return None
     status = str(entry.get("status", "new")).lower()
-    if status in _APPLIED:
-        raise StepTransitionError(E_ALREADY_APPLIED,
-                                  "the application was already sent")
     if status in _SKIPPED:
         raise StepTransitionError(E_NOT_CAPTURED,
                                   "a declined posting must be reconsidered first")
     entries = load_ledger()
     for candidate in entries:
         if candidate.get("slug") == entry.get("slug"):
-            candidate["status"] = "profile"
+            candidate["profile_only"] = True
             candidate["profile_at"] = datetime.now(timezone.utc).isoformat(
                 timespec="seconds")
+            if status not in _APPLIED:
+                candidate["status"] = "profile"
     save_ledger(entries)
     return entry.get("slug")
 
@@ -553,6 +555,7 @@ def job_view(entry: dict, base_dir: Optional[Path] = None) -> dict:
         "captured_at": entry.get("captured_at", ""),
         "step": step_of(slug, entry, base_dir),
         "reason": entry.get("skip_reason", ""),
+        "profile_only": bool(entry.get("profile_only")),
     }
 
 
@@ -813,12 +816,16 @@ def show_command(slug: str) -> None:
         raise typer.Exit(code=1)
     ready = has_cv(slug)
     step = step_of(slug, entry)
+    if entry.get("profile_only"):
+        cv_note = "not required (profile only)"
+    else:
+        cv_note = "ready" if ready else "pending"
     typer.echo(f"  company   {entry.get('company', '')}")
     typer.echo(f"  title     {entry.get('title', '')}")
     typer.echo(f"  location  {entry.get('location') or '-'}")
     typer.echo(f"  linkedin  {entry.get('url', '')}")
     typer.echo(f"  apply     {entry.get('apply_url') or '(none: Easy Apply)'}")
-    typer.echo(f"  step      {step}, CV {'ready' if ready else 'pending'}")
+    typer.echo(f"  step      {step}, CV {cv_note}")
     if entry.get("skip_reason"):
         typer.echo(f"  skipped   {entry['skip_reason']}")
     typer.echo(f"  captured  {entry.get('captured_at', '')}")
@@ -855,19 +862,23 @@ def status_command() -> None:
         return
     step = {e.get("slug", ""): step_of(e.get("slug", ""), e) for e in entries}
     pending = [e for e in entries if step[e.get("slug", "")] == "captured"]
+    pending = [e for e in entries if step[e.get("slug", "")] == "captured"]
     with_cv = [e for e in entries if has_cv(e.get("slug", ""))]
     ready = [e for e in entries if step[e.get("slug", "")] == "cv-ready"]
     applied = [e for e in entries if step[e.get("slug", "")] == "applied"]
     skipped = [e for e in entries if step[e.get("slug", "")] == "skipped"]
     profile = [e for e in entries if step[e.get("slug", "")] == "profile"]
+    pending_apply = [e for e in entries
+                     if step[e.get("slug", "")] in ("captured", "cv-ready", "profile")]
     with_link = [e for e in entries if e.get("apply_url")]
 
     typer.echo(f"  captures         {len(entries)}")
+    typer.echo(f"  pending apply    {len(pending_apply)}")
     typer.echo(f"  CV ready         {len(ready)}")
+    typer.echo(f"  pending CV       {len(pending)}")
     typer.echo(f"  applied          {len(applied)}")
     typer.echo(f"  skipped          {len(skipped)}")
     typer.echo(f"  profile only     {len(profile)}")
-    typer.echo(f"  pending CV       {len(pending)}")
     typer.echo(f"  with apply link  {len(with_link)}")
 
     # Which CVs carry a claim nothing proves. The ledger may be absent, which is
