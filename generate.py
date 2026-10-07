@@ -731,8 +731,14 @@ def _ats_check_every(lang: str) -> None:
 def status() -> None:
     """One screen: the capture queue, the CVs on disk, and the naming rules."""
     entries = inbox.load_ledger()
-    pending = [e for e in entries if not inbox.has_cv(e.get("slug", ""))]
+    step = {e.get("slug", ""): inbox.step_of(e.get("slug", ""), e)
+            for e in entries}
+    # Pending CV means what actually lacks a tailored CV. An applied, skipped or
+    # profile-only capture has no CV by design, and must not read as pending.
+    pending = [e for e in entries if step[e.get("slug", "")] == "captured"]
     ready = [e for e in entries if inbox.has_cv(e.get("slug", ""))]
+    applied = [e for e in entries if step[e.get("slug", "")] == "applied"]
+    skipped = [e for e in entries if step[e.get("slug", "")] == "skipped"]
     # Exact language files only: this excludes cv-pt.backup.<stamp>.json, which
     # would otherwise read as a language called "pt.backup.20260328_161326".
     cvs = sorted(p for p in (BASE_DIR / "companies").rglob("cv-*.json")
@@ -741,6 +747,8 @@ def status() -> None:
     typer.echo("queue")
     typer.echo(f"  captures        {len(entries)}")
     typer.echo(f"  CV ready        {len(ready)}")
+    typer.echo(f"  applied         {len(applied)}")
+    typer.echo(f"  skipped         {len(skipped)}")
     typer.echo(f"  pending CV      {len(pending)}")
     if pending:
         for e in pending:
