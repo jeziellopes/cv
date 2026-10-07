@@ -247,3 +247,35 @@ def test_status_counts_ready_and_pending(queued):
     result = runner.invoke(inbox.app, ["status"])
     assert "pending CV       0" in result.stdout
     assert "CV ready         1" in result.stdout
+
+
+def test_applied_echoes_the_step_transition(base):
+    inbox.save_capture(PAYLOAD, base)
+    result = runner.invoke(inbox.app, ["applied", "starian"])
+    assert result.exit_code == 0
+    assert "starian:" in result.output
+    assert "-> applied" in result.output
+
+
+def test_skip_echoes_the_step_transition_and_reason(base):
+    inbox.save_capture(PAYLOAD, base)
+    result = runner.invoke(inbox.app, ["skip", "starian", "--reason", "no fit"])
+    assert result.exit_code == 0
+    assert "-> skipped" in result.output
+    assert "no fit" in result.output
+
+
+def test_reconsider_echoes_the_step_transition(base):
+    inbox.save_capture(PAYLOAD, base)
+    inbox.mark_skipped("starian", "", base)
+    result = runner.invoke(inbox.app, ["reconsider", "starian"])
+    assert result.exit_code == 0
+    assert "-> cv-ready" in result.output
+
+
+def test_skip_refuses_an_applied_capture_from_the_cli(base):
+    inbox.save_capture(PAYLOAD, base)
+    inbox.mark_applied("starian", base)
+    result = runner.invoke(inbox.app, ["skip", "starian", "--reason", "x"])
+    assert result.exit_code == 1
+    assert inbox.E_ALREADY_APPLIED in result.output

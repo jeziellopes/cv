@@ -643,11 +643,14 @@ def next_command() -> None:
 @app.command("applied")
 def applied_command(identifier: str) -> None:
     """Record that an application was submitted, by slug or posting URL."""
-    slug = mark_applied(identifier)
-    if not slug:
+    entry = job_for(identifier)
+    if not entry:
         typer.echo(f"No capture matching {identifier}.", err=True)
         raise typer.Exit(code=1)
-    typer.echo(f"{slug} marked applied.")
+    before = step_of(entry["slug"], entry)
+    mark_applied(identifier)
+    after = step_of(entry["slug"], find_entry(entry["slug"]))
+    typer.echo(f"{entry['slug']}: {before} -> {after}")
 
 
 @app.command("mail")
@@ -673,21 +676,36 @@ def skip_command(
                                help="why this posting was passed over"),
 ) -> None:
     """Record that a posting was passed over on purpose."""
-    slug = mark_skipped(identifier, reason)
-    if not slug:
+    entry = job_for(identifier)
+    if not entry:
         typer.echo(f"No capture matching {identifier}.", err=True)
         raise typer.Exit(code=1)
-    typer.echo(f"{slug} skipped." + (f"  ({reason})" if reason else ""))
+    before = step_of(entry["slug"], entry)
+    try:
+        mark_skipped(identifier, reason)
+    except StepTransitionError as exc:
+        typer.echo(f"{exc.identity}: {exc.detail}", err=True)
+        raise typer.Exit(code=1)
+    after = step_of(entry["slug"], find_entry(entry["slug"]))
+    typer.echo(f"{entry['slug']}: {before} -> {after}"
+               + (f"  ({reason})" if reason else ""))
 
 
 @app.command("reconsider")
 def reconsider_command(identifier: str) -> None:
     """Return a declined posting to captured, dropping the reason."""
-    slug = mark_reconsidered(identifier)
-    if not slug:
+    entry = job_for(identifier)
+    if not entry:
         typer.echo(f"No capture matching {identifier}.", err=True)
         raise typer.Exit(code=1)
-    typer.echo(f"{slug} reconsidered.")
+    before = step_of(entry["slug"], entry)
+    try:
+        mark_reconsidered(identifier)
+    except StepTransitionError as exc:
+        typer.echo(f"{exc.identity}: {exc.detail}", err=True)
+        raise typer.Exit(code=1)
+    after = step_of(entry["slug"], find_entry(entry["slug"]))
+    typer.echo(f"{entry['slug']}: {before} -> {after}")
 
 
 def find_entry(slug: str) -> Optional[dict]:
