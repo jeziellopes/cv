@@ -5,7 +5,17 @@
     "allowed: a skill that is not evidenced but is recorded as acceptable, with a reason.",
     "extra:  canonical skills to watch for in postings even when no CV claims them yet.",
     "probes: evidence patterns for a skill whose evidence is not its own name.",
+    "roots:  git-roots scanned for authored evidence, employer code and backups included.",
     "Everything else is evidenced by scanning the repositories for the skill's own name."
+  ],
+  "roots": [
+    "~/lab",
+    "~/work",
+    "/media/admin/DATA/BKP_LENOVO/DATA/_GIT/_works"
+  ],
+  "authors": [
+    "jeziel",
+    "jlllo"
   ],
   "soft": [
     "agile",
@@ -1378,6 +1388,26 @@
       "langchain",
       "agent",
       "llm"
+    ],
+    "react navigation": [
+      "@react-navigation"
+    ],
+    "tanstack query": [
+      "@tanstack/react-query"
+    ],
+    "react query": [
+      "@tanstack/react-query"
+    ],
+    "expo": [
+      "expo-",
+      "@expo/"
+    ],
+    "sentry": [
+      "@sentry/"
+    ],
+    "i18next": [
+      "i18next",
+      "react-i18next"
     ]
   }
 }

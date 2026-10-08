@@ -198,8 +198,13 @@ def scan_evidence(names: list[str], roots=None, author: Optional[str] = None
     check each, which is what keeps a full scan to seconds instead of minutes.
     """
     probes = probe_map(names)
-    roots = evidence.resolve_roots(roots)
-    author = evidence.default_author() if author is None else author
+    config = load_config()
+    raw_roots = config.get("roots") or None
+    roots = evidence.resolve_roots(raw_roots)
+    if author is None:
+        authors = config.get("authors") or []
+        author = ("\\|".join(authors) if authors
+                  else evidence.default_author())
 
     word_map: dict[str, set[str]] = {}
     sub_map: dict[str, set[str]] = {}
