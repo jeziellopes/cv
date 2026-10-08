@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cv"
 version = "0.1.0"
-description = "Resume generator: edit cv.json, get a PDF."
+description = "A CLI that turns a LinkedIn JD into a tailored, ATS-checked resume and records the application, claiming only skills your committed code proves."
 requires-python = ">=3.10"
 license = {text = "MIT"}
 dependencies = [
