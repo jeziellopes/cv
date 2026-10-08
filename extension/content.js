@@ -459,10 +459,7 @@ async function onCapture(button) {
 
   if (result && result.ok) {
     const rated = result.match == null ? "" : `  ${result.match}% match`;
-    const went = result.triage
-      ? `, triaged below ${result.min}%`
-      : "";
-    toast(`Saved to ${result.path}${rated}${went}`, true);
+    toast(`Saved to ${result.path}${rated}`, true);
     log("saved", result);
   } else {
     toast(`Not saved: ${(result && result.error) || "unknown error"}`, false);

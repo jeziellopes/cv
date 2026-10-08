@@ -116,6 +116,9 @@ cv inbox requeue <slug>                         # bring a profile-only capture b
 cv inbox mail [--apply] [--all]                 # record applied from Gmail confirmations
 cv inbox repair [--slug X] [--apply]            # re-derive a title the capture got wrong
 cv inbox score <slug>                           # what drives a capture's fit percent
+cv triage add <slug>                            # set aside a queued capture below the fit minimum
+cv triage list                                  # postings set aside below the minimum
+cv triage promote <slug> | drop <slug> --yes    # decide what happens to those
 cv gaps [--soft]                                # skills postings ask for: answered, or needing your answer
 cv gaps answer -s X -e ENG | --could-not-place  # your answer for a demanded, unevidenced skill
 cv gaps refresh                                 # rescan repositories, rebuild the ledger
@@ -212,6 +215,12 @@ its Job and Apply links and the actions that belong to that step: **Mark applied
 **Decline** with a reason you write, and **Reconsider** for a decline. A step that
 has no meaning on a capture is not offered there, and the same impossibility is
 refused by the API.
+
+A capture always enters the pipeline; judging its fit is a separate action.
+Each queued row has its own **Match** button (or `cv triage add`) that scores
+the captured JD without moving it, and only then, below the minimum, does
+`triage add` set it aside. Clicking **Apply with CV** never sends a job to
+triage by itself.
 
 A capture can be recorded as **applied** from four places, each a record that
 the application was sent rather than an inference: the CLI, the panel, Gmail

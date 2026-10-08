@@ -85,6 +85,25 @@ async function markApplied(slug) {
   renderJobs();
 }
 
+// Checking a capture's fit is its own action, separate from capturing it: a
+// job is grabbed into the queue first, and only this button asks how well it
+// matches. Cheap and scratchy, so it is a state refresh, never a gate.
+async function checkMatch(slug) {
+  const res = await send({ type: "score", slug });
+  if (!res || !res.ok) {
+    setStatus((res && res.error) || "Could not check the fit.", "err");
+    return;
+  }
+  const job = allJobs.find((j) => j.slug === slug);
+  if (job) job.match = res.match;
+  renderTab();
+  setStatus(
+    res.match == null ? `${slug}: could not score.`
+      : `${slug}: CV fit ${res.match}% (minimum 60%).`,
+    "ok"
+  );
+}
+
 // A decline carries a justification the operator writes, and it is reversible:
 // a judgement made in a hurry is one you can take back.
 async function decline(slug, reason) {
@@ -128,6 +147,15 @@ function jobRow(job) {
   actions.className = "actions";
   if (job.url) actions.append(link(job.url, "Job"));
   if (job.apply_url) actions.append(link(job.apply_url, "Apply"));
+  if (job.step === "captured" || job.step === "cv-ready") {
+    // Fit is a separate check from capturing, so it is its own button.
+    const matchButton = document.createElement("button");
+    matchButton.type = "button";
+    matchButton.className = "match";
+    matchButton.textContent = "Match";
+    matchButton.addEventListener("click", () => checkMatch(job.slug));
+    actions.append(matchButton);
+  }
   if (job.step !== "applied" && job.step !== "skipped") {
     const button = document.createElement("button");
     button.type = "button";

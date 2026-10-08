@@ -300,6 +300,7 @@ def damaged_acme(tmp_path, monkeypatch):
     monkeypatch.setattr(inbox, "_linkedin_title",
                         lambda job_id: "Software Engineer")
     inbox.save_capture(DAMAGED, tmp_path, match=10)
+    inbox.move_to_triage("acme", tmp_path)
     return tmp_path
 
 

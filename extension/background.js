@@ -62,6 +62,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .then(sendResponse);
     return true;
   }
+  if (msg.type === "score") {
+    request("GET", `/score?slug=${encodeURIComponent(msg.slug)}`)
+      .then(sendResponse);
+    return true;
+  }
   if (msg.type === "markApplied") {
     post("/applied", msg.payload).then(sendResponse);
     return true;

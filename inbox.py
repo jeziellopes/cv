@@ -198,8 +198,10 @@ def save_capture(payload: dict, base_dir: Optional[Path] = None,
     if apply_url:
         header.append(f"apply: {apply_url}")
 
-    triage = match is not None and match < MIN_MATCH
-    root = "triage" if triage else "companies"
+    # A capture always enters the pipeline. The fit is a separate check
+    # (`cv triage add`, the panel's Match button), never a gate at capture:
+    # grabbing a job and judging its fit are two different actions.
+    root = "companies"
     out = base_dir / root / slug / "description.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(header) + f"\n\n{description}\n", encoding="utf-8")
@@ -214,8 +216,8 @@ def save_capture(payload: dict, base_dir: Optional[Path] = None,
         captured_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         apply_url=apply_url,
         match=match,
-        triage=triage,
-        status="triaged" if triage else "new",
+        triage=False,
+        status="new",
     )
 
     # The JD lives in companies/<slug>/description.md. Keeping a second copy in
@@ -497,13 +499,19 @@ def make_handler(token: str, base_dir: Path):
                     return
                 params = urllib.parse.parse_qs(
                     urllib.parse.urlparse(self.path).query)
-                payload = {
-                    "title": (params.get("title") or [""])[0],
-                    "company": (params.get("company") or [""])[0],
-                    "location": "",
-                    "url": "",
-                    "description": (params.get("description") or [""])[0],
-                }
+                if params.get("slug"):
+                    payload = _stored_payload(params["slug"][0], base_dir)
+                    if payload is None:
+                        self._send(404, {"ok": False, "error": "no such capture"})
+                        return
+                else:
+                    payload = {
+                        "title": (params.get("title") or [""])[0],
+                        "company": (params.get("company") or [""])[0],
+                        "location": "",
+                        "url": "",
+                        "description": (params.get("description") or [""])[0],
+                    }
                 match = score_payload(payload, base_dir)
                 self._send(200, {"ok": True, "match": match,
                                  "min": MIN_MATCH})
@@ -595,8 +603,7 @@ def make_handler(token: str, base_dir: Path):
                 self._send(422, {"ok": False, "error": str(exc)})
                 return
             self._send(200, {"ok": True, "slug": capture.slug, "path": capture.path,
-                             "match": match, "triage": capture.triage,
-                             "min": MIN_MATCH})
+                             "match": match})
 
         def log_message(self, fmt: str, *args) -> None:
             typer.echo(f"  inbox: {fmt % args}")
@@ -1052,6 +1059,43 @@ def requeue_command(identifier: str) -> None:
 triage_app = typer.Typer(help="Postings captured below the match minimum.")
 
 
+def move_to_triage(slug: str, base_dir: Optional[Path] = None) -> bool:
+    """Move a queued capture into triage/, by explicit request.
+
+    Captures never get there on their own: the operator asks, after checking
+    the fit, and this is the ask. Refuses when the queued JD is not on disk.
+    """
+    base_dir = base_dir or BASE_DIR
+    src = base_dir / "companies" / slug / "description.md"
+    if not src.is_file():
+        return False
+    dst = base_dir / "triage" / slug / "description.md"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(src), str(dst))
+    entries = load_ledger()
+    for candidate in entries:
+        if candidate.get("slug") == slug:
+            candidate["triage"] = True
+            candidate["status"] = "triaged"
+    save_ledger(entries)
+    return True
+
+
+def _stored_payload(slug: str, base_dir: Optional[Path] = None) -> Optional[dict]:
+    """A capture's scoring payload, rebuilt from its ledger entry and JD."""
+    base_dir = base_dir or BASE_DIR
+    entry = find_entry(slug)
+    if not entry:
+        return None
+    return {
+        "title": str(entry.get("title", "")),
+        "company": str(entry.get("company", "")),
+        "location": str(entry.get("location", "")),
+        "url": str(entry.get("url", "")),
+        "description": _capture_body(entry, base_dir),
+    }
+
+
 def triaged_entries() -> list[dict]:
     """Every capture that went to triage, with its recorded match."""
     return [e for e in load_ledger()
@@ -1122,6 +1166,39 @@ def triage_drop(
     shutil.rmtree(BASE_DIR / "triage" / slug, ignore_errors=True)
     save_ledger(entries)
     typer.echo(f"{slug} dropped.")
+
+
+@triage_app.command("add")
+def triage_add(slug: str) -> None:
+    """Score a queued capture and move it to triage below the minimum.
+
+    The match check that was once the capture's own step is now this command:
+    grabbing a job never sends it to triage; asking to check the fit does.
+    """
+    entry = find_entry(slug)
+    if not entry:
+        typer.echo(f"No capture {slug}.", err=True)
+        raise typer.Exit(code=1)
+    if entry.get("triage"):
+        typer.echo(f"{slug} is already triaged.")
+        return
+    payload = _stored_payload(slug)
+    if not payload:
+        typer.echo(f"No JD at companies/{slug}/description.md", err=True)
+        raise typer.Exit(code=1)
+    match = score_payload(payload)
+    if match is None:
+        typer.echo(f"{slug}: could not score (no cv.json).", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"{slug}: CV fit {match}% (minimum {MIN_MATCH}%)")
+    if match >= MIN_MATCH:
+        typer.echo("at or above the minimum: stays in the queue.")
+        return
+    if move_to_triage(slug):
+        typer.echo(f"{slug} moved to triage.")
+    else:
+        typer.echo(f"No JD at companies/{slug}/description.md", err=True)
+        raise typer.Exit(code=1)
 
 
 def find_entry(slug: str) -> Optional[dict]:

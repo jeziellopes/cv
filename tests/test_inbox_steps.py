@@ -382,14 +382,16 @@ def test_status_reports_pending_apply_separately(base):
     assert "pending CV" in result.output
 
 
-def test_save_capture_triages_below_the_minimum(base, monkeypatch):
+def test_a_capture_never_triages_at_save(base, monkeypatch):
+    """A low fit is checked, not gated: capturing and judging are two actions."""
     monkeypatch.setattr(inbox, "MIN_MATCH", 60)
     capture = inbox.save_capture(PAYLOAD, base, match=10)
-    assert capture.triage is True
-    assert capture.path == "triage/projuris/description.md"
-    assert (base / "triage" / "projuris" / "description.md").is_file()
+    assert capture.triage is False
+    assert capture.path == "companies/projuris/description.md"
+    assert (base / "companies" / "projuris" / "description.md").is_file()
+    assert not (base / "triage" / "projuris").exists()
     entry = inbox.load_ledger()[0]
-    assert inbox.step_of("projuris", entry, base) == "triaged"
+    assert inbox.step_of("projuris", entry, base) == "captured"
     assert entry["match"] == 10
 
 
@@ -410,15 +412,16 @@ def test_score_payload_is_none_without_a_cv(tmp_path):
     assert inbox.score_payload(PAYLOAD, tmp_path) is None
 
 
-def test_capture_returns_the_match_and_triage(server, monkeypatch):
-    base, token, _ = server
-    monkeypatch.setattr(inbox, "MIN_MATCH", 60)
+def test_capture_returns_the_match_without_triaging(server, monkeypatch):
+    base, token, tmp = server
     monkeypatch.setattr(inbox, "score_payload",
                         lambda payload, base_dir=None: 40)
     status, body = _call("POST", base + "/capture", PAYLOAD, token)
     assert status == 200
-    assert body["match"] == 40 and body["triage"] is True
-    assert body["path"].startswith("triage/")
+    assert body["match"] == 40
+    assert "triage" not in body
+    assert body["path"].startswith("companies/")
+    assert (tmp / "companies" / "projuris" / "description.md").is_file()
 
 
 def test_score_endpoint_reports_the_minimum(server, monkeypatch):
@@ -431,10 +434,60 @@ def test_score_endpoint_reports_the_minimum(server, monkeypatch):
     assert body["min"] == inbox.MIN_MATCH
 
 
+def test_score_endpoint_scores_a_stored_capture(server, monkeypatch):
+    """The panel's Match button reads a captured JD straight from the server."""
+    base, token, tmp = server
+    monkeypatch.setattr(inbox, "score_payload",
+                        lambda payload, base_dir=None: 33)
+    _call("POST", base + "/capture", PAYLOAD, token)
+    status, body = _call("GET", base + "/score?slug=projuris", token=token)
+    assert status == 200 and body["match"] == 33
+    assert (tmp / "companies" / "projuris" / "description.md").is_file(), \
+        "scoring a capture must never move it"
+
+
+def test_score_endpoint_404s_an_unknown_capture(server, monkeypatch):
+    base, token, _ = server
+    status, body = _call("GET", base + "/score?slug=nope", token=token)
+    assert status == 404
+
+
+def test_triage_add_moves_a_below_minimum_capture(base, monkeypatch):
+    from typer.testing import CliRunner
+    import generate as gen
+    inbox.save_capture(PAYLOAD, base)
+    monkeypatch.setattr(inbox, "BASE_DIR", base)
+    monkeypatch.setattr(gen, "BASE_DIR", base)
+    monkeypatch.setattr(inbox, "score_payload",
+                        lambda payload, base_dir=None: 10)
+    result = CliRunner().invoke(gen.app, ["triage", "add", "projuris"])
+    assert result.exit_code == 0, result.output
+    assert (base / "triage" / "projuris" / "description.md").is_file()
+    entry = inbox.load_ledger()[0]
+    assert entry["triage"] is True
+    assert entry["status"] == "triaged"
+
+
+def test_triage_add_keeps_a_capture_at_or_above_the_minimum(base, monkeypatch):
+    from typer.testing import CliRunner
+    import generate as gen
+    inbox.save_capture(PAYLOAD, base)
+    monkeypatch.setattr(inbox, "BASE_DIR", base)
+    monkeypatch.setattr(gen, "BASE_DIR", base)
+    monkeypatch.setattr(inbox, "score_payload",
+                        lambda payload, base_dir=None: 80)
+    result = CliRunner().invoke(gen.app, ["triage", "add", "projuris"])
+    assert result.exit_code == 0, result.output
+    assert "stays in the queue" in result.output
+    assert not (base / "triage").exists()
+    assert inbox.load_ledger()[0]["triage"] is False
+
+
 def test_triage_promote_moves_the_jd_into_the_queue(base, monkeypatch):
     from typer.testing import CliRunner
     import generate as gen
     inbox.save_capture(PAYLOAD, base, match=10)
+    assert inbox.move_to_triage("projuris", base)
     monkeypatch.setattr(inbox, "BASE_DIR", base)
     monkeypatch.setattr(gen, "BASE_DIR", base)
 
@@ -450,6 +503,7 @@ def test_triage_drop_refuses_without_yes_then_removes(base, monkeypatch):
     from typer.testing import CliRunner
     import generate as gen
     inbox.save_capture(PAYLOAD, base, match=10)
+    assert inbox.move_to_triage("projuris", base)
     monkeypatch.setattr(inbox, "BASE_DIR", base)
     monkeypatch.setattr(gen, "BASE_DIR", base)
 
