@@ -16,7 +16,6 @@ const SELECTORS = {
     ".job-details-jobs-unified-top-card__job-title",
     "[class*='job-details-jobs-unified-top-card__job-title']",
     "[class*='jobs-unified-top-card__job-title']",
-    "[class*='job-title']",
     ".jobs-unified-top-card__job-title",
     "h1.t-24",
     "h1",
@@ -240,6 +239,23 @@ function cleanTitle(text) {
   return String(text || "").replace(/^(selected|selecionado)[,\s]+/i, "").trim();
 }
 
+// "Remote", "São Paulo" and the company each live on the location line for
+// some layouts. A locator that lands on that line is reading the wrong thing,
+// so a title that equals the location is treated as the failed extraction the
+// spec pins rather than accepted as the role.
+function sameAsLocation(candidate, location) {
+  if (!candidate || !location) return false;
+  const norm = (text) =>
+    String(text)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  return norm(candidate) === norm(location);
+}
+
 function fromAriaLabel() {
   let el = null;
   try {
@@ -259,19 +275,31 @@ function extract() {
   const parts = titleParts();
   const id = currentJobId();
 
+  // The location is resolved before the title so a title that merely repeats
+  // the location line can be detected and rejected.
+  const location = firstText(SELECTORS.location) || jsonLd.location || "";
+
   // The title link for this job carries the clean title; the list wrapper adds
   // a "Selected, " prefix that the anchor itself does not.
-  let title = "";
+  const candidates = [];
   if (id) {
     try {
-      title = textOf(document.querySelector(`a[href*="/jobs/view/${id}"]`));
+      candidates.push(textOf(document.querySelector(`a[href*="/jobs/view/${id}"]`)));
     } catch {
-      title = "";
+      candidates.push("");
     }
   }
-  title = cleanTitle(
-    title || firstText(SELECTORS.title) || parts[0] || jsonLd.title || fromMeta("og:title")
-  );
+  candidates.push(firstText(SELECTORS.title), parts[0], jsonLd.title,
+                  fromMeta("og:title"));
+
+  let title = "";
+  for (const candidate of candidates) {
+    const cleaned = cleanTitle(candidate);
+    if (!cleaned) continue;
+    if (sameAsLocation(cleaned, location)) continue;
+    title = cleaned;
+    break;
+  }
 
   // The company logo's aria-label names the company, and it is stable.
   const company =
@@ -285,7 +313,7 @@ function extract() {
   return {
     title,
     company,
-    location: firstText(SELECTORS.location) || jsonLd.location || "",
+    location,
     url: id ? `https://www.linkedin.com/jobs/view/${id}/` : location.href,
     apply_url: applyUrl(),
     description: descriptionText() || jsonLd.description || "",

@@ -334,6 +334,26 @@ async function clickCapture(button) {
   check("leaves apply_url empty for Easy Apply",
     easy.apply_url === "", JSON.stringify(easy.apply_url));
 
+  // The location line must never stand in for the role (spec 0010). A page
+  // whose title element reads "Remote" must fall through to a real source.
+  r = run({
+    url: JOB_URL,
+    title: "Engenheiro de Software | Acme | LinkedIn",
+    nodes: [
+      makeEl("img", { "aria-label": "Company logo for, Acme." }),
+      makeEl("div", { class: "jobs-unified-top-card__job-title" }, "Remote"),
+      makeEl("div", { class: "jobs-unified-top-card__bullet" }, "Remote"),
+      makeEl("button", { "aria-label": "Easy Apply" }, "Easy Apply"),
+      makeEl("div", { "data-sdui-screen": "x.jobs.SemanticJobDetails" },
+        "Sobre a vaga " + "Requisitos: React, TypeScript e testes. ".repeat(4)),
+    ],
+  });
+  await clickCapture(r.button);
+  const loc = (r.sent.find((m) => m.type === "capture") || {}).payload || {};
+  check("never lets the location line stand in for the title",
+    loc.title === "Engenheiro de Software" && loc.location === "Remote",
+    JSON.stringify([loc.title, loc.location]));
+
   // LinkedIn appends page chrome after the JD; it must not leak into the JD.
   r = run({
     url: JOB_URL,
