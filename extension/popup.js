@@ -144,6 +144,11 @@ function jobRow(job) {
     note.className = "reason";
     note.textContent = "No tailored CV: applied with the LinkedIn profile.";
     row.append(note);
+  } else if (job.match != null) {
+    const note = document.createElement("p");
+    note.className = "reason";
+    note.textContent = `CV fit ${job.match}%.`;
+    row.append(note);
   }
 
   if (job.step === "skipped") {

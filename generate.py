@@ -90,6 +90,9 @@ app.add_typer(guards.names_app, name="names")
 # Which claims a repository backs, and which a posting asks for but nothing does.
 app.add_typer(skills.app, name="gaps")
 
+# Postings captured below the match minimum, waiting to be promoted or dropped.
+app.add_typer(inbox.triage_app, name="triage")
+
 
 @app.callback(invoke_without_command=True)
 def root(
@@ -746,6 +749,7 @@ def status() -> None:
 
     typer.echo("queue")
     typer.echo(f"  captures        {len(entries)}")
+    typer.echo(f"  min match       {inbox.MIN_MATCH}%")
     typer.echo(f"  CV ready        {len(ready)}")
     typer.echo(f"  applied         {len(applied)}")
     typer.echo(f"  skipped         {len(skipped)}")
