@@ -382,6 +382,86 @@ def test_status_reports_pending_apply_separately(base):
     assert "pending CV" in result.output
 
 
+def test_save_capture_triages_below_the_minimum(base, monkeypatch):
+    monkeypatch.setattr(inbox, "MIN_MATCH", 60)
+    capture = inbox.save_capture(PAYLOAD, base, match=10)
+    assert capture.triage is True
+    assert capture.path == "triage/projuris/description.md"
+    assert (base / "triage" / "projuris" / "description.md").is_file()
+    entry = inbox.load_ledger()[0]
+    assert inbox.step_of("projuris", entry, base) == "triaged"
+    assert entry["match"] == 10
+
+
+def test_save_capture_promotes_at_or_above_the_minimum(base, monkeypatch):
+    monkeypatch.setattr(inbox, "MIN_MATCH", 60)
+    capture = inbox.save_capture(PAYLOAD, base, match=70)
+    assert capture.triage is False
+    assert (base / "companies" / "projuris" / "description.md").is_file()
+
+
+def test_save_capture_promotes_when_unscored(base):
+    """A failed score must not hide a job the operator selected."""
+    capture = inbox.save_capture(PAYLOAD, base)
+    assert capture.triage is False
+
+
+def test_score_payload_is_none_without_a_cv(tmp_path):
+    assert inbox.score_payload(PAYLOAD, tmp_path) is None
+
+
+def test_capture_returns_the_match_and_triage(server, monkeypatch):
+    base, token, _ = server
+    monkeypatch.setattr(inbox, "MIN_MATCH", 60)
+    monkeypatch.setattr(inbox, "score_payload",
+                        lambda payload, base_dir=None: 40)
+    status, body = _call("POST", base + "/capture", PAYLOAD, token)
+    assert status == 200
+    assert body["match"] == 40 and body["triage"] is True
+    assert body["path"].startswith("triage/")
+
+
+def test_score_endpoint_reports_the_minimum(server, monkeypatch):
+    base, token, _ = server
+    monkeypatch.setattr(inbox, "score_payload",
+                        lambda payload, base_dir=None: 72)
+    status, body = _call(
+        "GET", base + "/score?title=T&company=C&description=D", token=token)
+    assert status == 200 and body["match"] == 72
+    assert body["min"] == inbox.MIN_MATCH
+
+
+def test_triage_promote_moves_the_jd_into_the_queue(base, monkeypatch):
+    from typer.testing import CliRunner
+    import generate as gen
+    inbox.save_capture(PAYLOAD, base, match=10)
+    monkeypatch.setattr(inbox, "BASE_DIR", base)
+    monkeypatch.setattr(gen, "BASE_DIR", base)
+
+    result = CliRunner().invoke(gen.app, ["triage", "promote", "projuris"])
+    assert result.exit_code == 0, result.output
+    assert (base / "companies" / "projuris" / "description.md").is_file()
+    entry = inbox.load_ledger()[0]
+    assert entry["triage"] is False
+    assert inbox.step_of("projuris", entry, base) == "captured"
+
+
+def test_triage_drop_refuses_without_yes_then_removes(base, monkeypatch):
+    from typer.testing import CliRunner
+    import generate as gen
+    inbox.save_capture(PAYLOAD, base, match=10)
+    monkeypatch.setattr(inbox, "BASE_DIR", base)
+    monkeypatch.setattr(gen, "BASE_DIR", base)
+
+    refused = CliRunner().invoke(gen.app, ["triage", "drop", "projuris"])
+    assert refused.exit_code == 1
+
+    dropped = CliRunner().invoke(gen.app, ["triage", "drop", "projuris", "--yes"])
+    assert dropped.exit_code == 0, dropped.output
+    assert not (base / "triage" / "projuris").exists()
+    assert "projuris" not in [e.get("slug") for e in inbox.load_ledger()]
+
+
 def test_profile_echoes_the_transition(base):
     from typer.testing import CliRunner
     inbox.save_capture(PAYLOAD, base)

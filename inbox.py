@@ -17,8 +17,10 @@ Threat model, since this writes files from a browser:
 from __future__ import annotations
 
 import json
+import os
 import re
 import secrets
+import shutil
 import unicodedata
 import urllib.parse
 from dataclasses import asdict, dataclass
@@ -34,6 +36,8 @@ LEDGER = BASE_DIR / "inbox.json"
 TOKEN_FILE = BASE_DIR / ".cv-inbox-token"
 DIAGNOSE_FILE = BASE_DIR / "inbox-diagnose.json"
 DEFAULT_PORT = 8787
+# A capture below this CV fit is triaged into triage/ instead of the pipeline.
+MIN_MATCH = int(os.environ.get("CV_MIN_MATCH", "60"))
 
 # What a capture must carry for a tailored CV to be possible at all.
 REQUIRED = ("company", "title")
@@ -69,10 +73,15 @@ class Capture:
     status: str = "new"
     # The company's own application link, when the job is not Easy Apply.
     apply_url: str = ""
+    # Set by the capture handler: the CV fit for the JD, and whether it went to
+    # triage because it was below the minimum.
+    match: Optional[int] = None
+    triage: bool = False
 
     @property
     def path(self) -> str:
-        return f"companies/{self.slug}/description.md"
+        root = "triage" if self.triage else "companies"
+        return f"{root}/{self.slug}/description.md"
 
 
 def load_ledger(path: Optional[Path] = None) -> list[dict]:
@@ -97,7 +106,38 @@ def _role_slug(title: str) -> str:
     return slugify(title)[:40].strip("-") or "role"
 
 
-def save_capture(payload: dict, base_dir: Optional[Path] = None) -> Capture:
+def score_payload(payload: dict, base_dir: Optional[Path] = None) -> Optional[int]:
+    """The base CV's fit for a JD, 0-100, or None when it cannot be scored.
+
+    The scoring is reused from search.py; the base cv.json is the target. A None
+    result means the gate could not run, and the capture is promoted instead of
+    being triaged, so a scoring failure never silently hides a job.
+    """
+    try:
+        import search
+    except ImportError:
+        return None
+    base_dir = base_dir or BASE_DIR
+    if not (base_dir / "cv.json").is_file():
+        return None
+    job = search.Job(
+        title=str(payload.get("title") or ""),
+        company=str(payload.get("company") or ""),
+        location=str(payload.get("location") or ""),
+        url=str(payload.get("url") or ""),
+        description=str(payload.get("description") or ""),
+        source="capture",
+    )
+    try:
+        cv = json.loads((base_dir / "cv.json").read_text(encoding="utf-8"))
+        ranked = search.rank([job], cv)
+    except Exception:  # noqa: BLE001 - a scoring failure must not hide the job
+        return None
+    return ranked[0].fit if ranked else None
+
+
+def save_capture(payload: dict, base_dir: Optional[Path] = None,
+                 match: Optional[int] = None) -> Capture:
     """Write the JD to companies/<slug>/description.md and queue it.
 
     The file layout matches search.ingest() so the existing pipeline reads it
@@ -148,7 +188,8 @@ def save_capture(payload: dict, base_dir: Optional[Path] = None) -> Capture:
             role = _role_slug(title)
             slug = f"{company_slug}/{role}"
             n = 2
-            while slug in taken or (base_dir / "companies" / slug).exists():
+            while slug in taken or (base_dir / "companies" / slug).exists() \
+                    or (base_dir / "triage" / slug).exists():
                 slug = f"{company_slug}/{role}-{n}"
                 n += 1
 
@@ -156,7 +197,9 @@ def save_capture(payload: dict, base_dir: Optional[Path] = None) -> Capture:
     if apply_url:
         header.append(f"apply: {apply_url}")
 
-    out = base_dir / "companies" / slug / "description.md"
+    triage = match is not None and match < MIN_MATCH
+    root = "triage" if triage else "companies"
+    out = base_dir / root / slug / "description.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(header) + f"\n\n{description}\n", encoding="utf-8")
 
@@ -169,6 +212,9 @@ def save_capture(payload: dict, base_dir: Optional[Path] = None) -> Capture:
         description=description,
         captured_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         apply_url=apply_url,
+        match=match,
+        triage=triage,
+        status="triaged" if triage else "new",
     )
 
     # The JD lives in companies/<slug>/description.md. Keeping a second copy in
@@ -268,6 +314,23 @@ def make_handler(token: str, base_dir: Path):
                     count = 20
                 self._send(200, {"ok": True, "jobs": jobs(base_dir, count)})
                 return
+            if self.path.split("?")[0] == "/score":
+                if not self._authorized():
+                    self._send(401, {"ok": False, "error": "bad token"})
+                    return
+                params = urllib.parse.parse_qs(
+                    urllib.parse.urlparse(self.path).query)
+                payload = {
+                    "title": (params.get("title") or [""])[0],
+                    "company": (params.get("company") or [""])[0],
+                    "location": "",
+                    "url": "",
+                    "description": (params.get("description") or [""])[0],
+                }
+                match = score_payload(payload, base_dir)
+                self._send(200, {"ok": True, "match": match,
+                                 "min": MIN_MATCH})
+                return
             self._send(404, {"ok": False, "error": "not found"})
 
         def do_POST(self) -> None:  # noqa: N802
@@ -349,11 +412,14 @@ def make_handler(token: str, base_dir: Path):
                 return
 
             try:
-                capture = save_capture(payload, base_dir)
+                match = score_payload(payload, base_dir)
+                capture = save_capture(payload, base_dir, match=match)
             except ValueError as exc:
                 self._send(422, {"ok": False, "error": str(exc)})
                 return
-            self._send(200, {"ok": True, "slug": capture.slug, "path": capture.path})
+            self._send(200, {"ok": True, "slug": capture.slug, "path": capture.path,
+                             "match": match, "triage": capture.triage,
+                             "min": MIN_MATCH})
 
         def log_message(self, fmt: str, *args) -> None:
             typer.echo(f"  inbox: {fmt % args}")
@@ -482,14 +548,16 @@ def jd_date(slug: str, base_dir: Optional[Path] = None) -> str:
 
 
 # The capture lifecycle: captured -> cv-ready -> applied, a posting passed over
-# is skipped, and one applied straight from the LinkedIn profile needs no
-# tailored CV and is "profile". Only applied, skipped and profile are stored;
-# "cv-ready" is read from the files on disk, so regenerating or deleting a CV
-# moves the step without anything needing to be kept in sync.
-STEPS = ("captured", "cv-ready", "applied", "skipped", "profile")
+# is skipped, one applied straight from the LinkedIn profile is profile-only,
+# and one below the match minimum is triaged until promoted or dropped. Only
+# applied, skipped, profile and triaged are stored; "cv-ready" is read from the
+# files on disk, so regenerating or deleting a CV moves the step without
+# anything needing to be kept in sync.
+STEPS = ("captured", "cv-ready", "applied", "skipped", "profile", "triaged")
 _APPLIED = {"applied"}
 _SKIPPED = {"skipped", "rejected", "declined"}
 _PROFILE = {"profile", "profile-only"}
+_TRIAGE = {"triaged"}
 
 # Returned in `code` so a caller branches on the identity, never on the message.
 E_NO_CAPTURE = "E_NO_CAPTURE"
@@ -526,6 +594,8 @@ def step_of(slug: str, entry: dict, base_dir: Optional[Path] = None) -> str:
         return "skipped"
     if status in _PROFILE:
         return "profile"
+    if status in _TRIAGE:
+        return "triaged"
     return "cv-ready" if has_cv(slug, base_dir) else "captured"
 
 
@@ -556,6 +626,8 @@ def job_view(entry: dict, base_dir: Optional[Path] = None) -> dict:
         "step": step_of(slug, entry, base_dir),
         "reason": entry.get("skip_reason", ""),
         "profile_only": bool(entry.get("profile_only")),
+        "match": entry.get("match"),
+        "triage": bool(entry.get("triage")),
     }
 
 
@@ -798,6 +870,81 @@ def requeue_command(identifier: str) -> None:
         raise typer.Exit(code=1)
     after = step_of(entry["slug"], find_entry(entry["slug"]))
     typer.echo(f"{entry['slug']}: {before} -> {after}")
+
+
+triage_app = typer.Typer(help="Postings captured below the match minimum.")
+
+
+def triaged_entries() -> list[dict]:
+    """Every capture that went to triage, with its recorded match."""
+    return [e for e in load_ledger()
+            if e.get("triage") or str(e.get("status", "")).lower() in _TRIAGE]
+
+
+@triage_app.command("list")
+def triage_list() -> None:
+    """List the postings below the match minimum."""
+    entries = sorted(triaged_entries(), key=lambda e: e.get("match") or 0)
+    if not entries:
+        typer.echo(f"Nothing triaged. Minimum match is {MIN_MATCH}%.")
+        return
+    typer.echo(f"minimum match {MIN_MATCH}%")
+    for e in entries:
+        typer.echo(f"  {str(e.get('match', '?')):>3}%  {e.get('slug', '')}")
+        typer.echo(f"      {e.get('company', '')} - {e.get('title', '')}")
+    typer.echo("\nnext: cv triage promote <slug>   cv triage drop <slug> --yes")
+
+
+@triage_app.command("promote")
+def triage_promote(slug: str) -> None:
+    """Move a triaged JD into the queue so a CV can be tailored from it."""
+    entry = next((e for e in load_ledger()
+                  if e.get("slug") == slug and e.get("triage")), None)
+    if not entry:
+        typer.echo(f"No triaged capture {slug}.", err=True)
+        raise typer.Exit(code=1)
+    src = BASE_DIR / "triage" / slug / "description.md"
+    dst = BASE_DIR / "companies" / slug / "description.md"
+    if not src.is_file():
+        typer.echo(f"No JD at {src.relative_to(BASE_DIR)}", err=True)
+        raise typer.Exit(code=1)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(src), str(dst))
+    try:
+        (BASE_DIR / "triage" / slug).rmdir()
+    except OSError:
+        pass
+    entries = load_ledger()
+    for candidate in entries:
+        if candidate.get("slug") == slug and candidate.get("triage"):
+            candidate["status"] = "new"
+            candidate["triage"] = False
+    save_ledger(entries)
+    typer.echo(f"{slug} ({entry.get('match')}%) promoted to the queue.")
+    typer.echo(f"Next: cv tailor {slug}")
+
+
+@triage_app.command("drop")
+def triage_drop(
+    slug: str,
+    yes: bool = typer.Option(False, "--yes",
+                             help="confirm the triaged posting is discarded"),
+) -> None:
+    """Remove a triaged posting and its JD."""
+    if not yes:
+        typer.echo("This removes the triaged JD and its ledger entry. "
+                   "Pass --yes to confirm.", err=True)
+        raise typer.Exit(code=1)
+    entries = load_ledger()
+    window = triaged_entries()
+    if not any(e.get("slug") == slug for e in window):
+        typer.echo(f"No triaged capture {slug}.", err=True)
+        raise typer.Exit(code=1)
+    entries[:] = [e for e in entries
+                  if not (e.get("slug") == slug and e.get("triage"))]
+    shutil.rmtree(BASE_DIR / "triage" / slug, ignore_errors=True)
+    save_ledger(entries)
+    typer.echo(f"{slug} dropped.")
 
 
 def find_entry(slug: str) -> Optional[dict]:
