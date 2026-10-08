@@ -5,6 +5,7 @@
     "allowed: a skill that is not evidenced but is recorded as acceptable, with a reason.",
     "extra:  canonical skills to watch for in postings even when no CV claims them yet.",
     "probes: evidence patterns for a skill whose evidence is not its own name.",
+    "mapping: the packages whose import in authored source proves a skill (spec 0009).",
     "roots:  git-roots scanned for authored evidence, employer code and backups included.",
     "Everything else is evidenced by scanning the repositories for the skill's own name."
   ],
@@ -1404,6 +1405,53 @@
     ],
     "sentry": [
       "@sentry/"
+    ],
+    "i18next": [
+      "i18next",
+      "react-i18next"
+    ]
+  },
+  "mapping": {
+    "React": [
+      "react",
+      "react-dom",
+      "react/jsx-runtime"
+    ],
+    "React Native": [
+      "react-native",
+      "@react-native"
+    ],
+    "React Navigation": [
+      "@react-navigation/native",
+      "@react-navigation/native-stack",
+      "@react-navigation/bottom-tabs",
+      "@react-navigation/stack",
+      "@react-navigation/drawer"
+    ],
+    "TanStack Query": [
+      "@tanstack/react-query",
+      "@tanstack/query-core",
+      "react-query",
+      "@tanstack/query-core"
+    ],
+    "Expo": [
+      "expo",
+      "expo-status-bar",
+      "expo-linear-gradient",
+      "expo-location",
+      "expo-font",
+      "expo-blur",
+      "expo-constants",
+      "expo-device",
+      "expo-image",
+      "expo-router",
+      "@expo/vector-icons"
+    ],
+    "Sentry": [
+      "@sentry/react-native",
+      "@sentry/react",
+      "@sentry/node",
+      "@sentry/browser"
     ],
     "i18next": [
       "i18next",

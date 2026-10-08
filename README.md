@@ -90,9 +90,11 @@ cv inbox reconsider <slug>                      # take a decline back
 cv inbox profile <slug>                         # no CV wanted, LinkedIn profile only
 cv inbox requeue <slug>                         # bring a profile-only capture back
 cv inbox mail [--apply] [--all]                 # record applied from Gmail confirmations
-cv gaps [--soft]                                # skills the postings ask for that nothing proves
+cv gaps [--soft]                                # skills postings ask for: answered, or needing your answer
+cv gaps answer -s X -e ENG | --could-not-place  # your answer for a demanded, unevidenced skill
 cv gaps refresh                                 # rescan repositories, rebuild the ledger
 cv gaps check                                   # fail any CV that claims an unproven skill
+cv skillscan                                    # discover skills from the imports you actually wrote
 cv evidence --probe aws                         # where real usage exists
 cv names check                                  # docs that name an unapproved project
 cv claims verify                                # re-derive every quantified figure
@@ -127,9 +129,11 @@ Three gates decide what may appear on a CV instead of trusting the author, and e
 
 - **Claims.** Every quantified figure a CV asserts is re-derived from the repositories, so a number that cannot be reproduced is caught before it ships. `cv claims verify`.
 - **Names.** A project name is publishable only where the operator approved it for that application, and never in prose that reaches a stranger. `cv names check`.
-- **Skill evidence.** A skill is claimable only where authored source code uses it. `cv gaps refresh` scans the repositories and builds a ledger; `cv generate` refuses to render a CV that claims a skill neither evidenced, soft, nor allowed. `cv gaps` reports what the postings ask for that nothing proves, which is the list of projects worth building next.
+- **Skill evidence.** A skill is claimable only where authored source code uses it. `cv gaps refresh` scans the repositories and builds a ledger, reading both probe patterns and the packages the source actually imports (`cv skillscan` reports what that discovers); `cv generate` refuses to render a CV that claims a skill neither evidenced, soft, nor allowed. A demanded, unevidenced skill is not declared a gap until the operator is asked: the report names it and `cv gaps answer` records the answer, with an engagement for affirmed skills or `--could-not-place` for ones that stay gaps. The gaps are what remains after both steps leave a skill unresolved.
 
 The evidence scanner is deliberately a candidate finder. A hit is read before it becomes a claim, docs and manifests do not count as usage, bare words are matched whole (so `ecs` does not match `specs`), and the scanner's own probe files are excluded from their own evidence.
+
+A second lens reads the imports in the same authored source, then binds them to skills through a hand-reviewed package mapping in `skills.json`. Node and Python standard library and `@/` path aliases carry no signal and are skipped; packages that match no mapping are written to `candidates.json` (gitignored) for you to approve rather than becoming skills on their own.
 
 ## Job search
 

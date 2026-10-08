@@ -102,7 +102,7 @@ def test_cv_paths_skips_backups(tmp_path, monkeypatch):
     assert [p.name for p in skills.cv_paths()] == ["cv-pt.json"]
 
 
-def test_classify_separates_gaps_from_claims():
+def test_classify_sends_an_asked_demanded_skill_to_the_operator():
     ledger = {
         "skills": ["React", "DynamoDB", "Scrum"],
         "evidence": {"React": ["r"]},
@@ -110,9 +110,133 @@ def test_classify_separates_gaps_from_claims():
     }
     config = {"soft": ["Scrum"]}
     parts = skills.classify(ledger, config)
-    assert "DynamoDB" in parts["gaps"]
-    assert "React" not in parts["gaps"]
-    assert "Scrum" not in parts["gaps"]
+    # Demand + no evidence + no answer is a question for the operator (ADR 0007),
+    # not yet a gap.
+    assert "DynamoDB" in parts["needs_answer"]
+    assert "DynamoDB" not in parts["gaps"]
+    assert "React" not in parts["needs_answer"]
+    assert "Scrum" not in parts["needs_answer"]
+
+
+def test_an_answered_skill_leaves_the_gaps():
+    ledger = {"skills": ["Cobol"], "evidence": {}, "allowed": {},
+              "demand": {"Cobol": ["acme"]}, "soft": []}
+    conf = {"Cobol": {"engagement": "Foodway app"}}
+    parts = skills.classify(ledger, confirmations=conf)
+    assert "Cobol" in parts["confirmed"]
+    assert parts["confirmed"]["Cobol"]["engagement"] == "Foodway app"
+    assert "Cobol" not in parts["gaps"]
+    assert "Cobol" not in parts["needs_answer"]
+
+
+def test_a_skill_the_operator_could_not_place_stays_a_gap():
+    ledger = {"skills": ["Cobol"], "evidence": {}, "allowed": {},
+              "demand": {"Cobol": ["acme"]}, "soft": []}
+    conf = {"Cobol": {"engagement": None, "note": "asked, could not place"}}
+    parts = skills.classify(ledger, confirmations=conf)
+    assert "Cobol" in parts["gaps"]
+    assert "Cobol" not in parts["needs_answer"]
+    assert "Cobol" not in parts["confirmed"]
+
+
+def test_unproven_in_accepts_an_operator_confirmation():
+    ledger = {"evidence": {}}
+    conf = {"Cobol": {"engagement": "Foodway app"}}
+    assert skills.unproven_in(_cv("Cobol"), ledger, confirmations=conf) == []
+
+
+def test_unproven_in_still_flags_a_skill_that_could_not_be_placed():
+    conf = {"Cobol": {"engagement": None}}
+    assert skills.unproven_in(_cv("Cobol"), {"evidence": {}},
+                              confirmations=conf) == ["Cobol"]
+
+
+def test_pkg_base_reduces_specifiers_and_drops_stdlib():
+    assert skills._pkg_base("@scope/a/b") == "@scope/a"
+    assert skills._pkg_base("lodash/snakeCase") == "lodash"
+    assert skills._pkg_base("react/jsx-runtime") == "react"
+    assert skills._pkg_base("./local") == ""
+    assert skills._pkg_base("../up") == ""
+    assert skills._pkg_base("fs") == "", "node builtins carry no signal"
+    assert skills._pkg_base("os") == "", "python stdlib carries no signal"
+
+
+def test_packages_line_reads_each_language_import():
+    js = 'import React from "react"; const q = require("lodash");' \
+         ' import "@tanstack/react-query";'
+    assert skills._packages_line(js, "app/details.tsx") == {
+        "react", "lodash", "@tanstack/react-query"}
+    py = "from django.http import JsonResponse\nimport requests\n" \
+         "from .local import thing"
+    assert skills._packages_line(py, "app/views.py") == {"django", "requests"}
+    assert skills._packages_line('import "github.com/gin-gonic/gin"',
+                                 "main.go") == {"github.com/gin-gonic/gin"}
+    assert skills._packages_line('require "rack"', "app.rb") == {"rack"}
+
+
+def test_import_evidence_maps_imported_packages_to_skills():
+    config = {"mapping": {"TanStack Query": ["@tanstack/react-query"],
+                          "Expo": ["expo"]}}
+    per_repo = {"employer/app": ["@tanstack/react-query", "expo"],
+                "personal/site": ["lodash"]}
+    got = skills.import_evidence(config, per_repo=per_repo)
+    assert got == {"TanStack Query": ["employer/app"], "Expo": ["employer/app"]}
+
+
+def test_build_merges_codepath_evidence_with_import_evidence(
+        tmp_path, monkeypatch):
+    monkeypatch.setattr(skills, "scan_evidence",
+                        lambda names, roots=None, author=None: {"React": ["a"]})
+    monkeypatch.setattr(skills, "import_evidence",
+                        lambda config=None, roots=None, author=None:
+                        {"TanStack Query": ["employer/app"]})
+    ledger = skills.build(["React", "TanStack Query"])
+    assert ledger["evidence"]["React"] == ["a"]
+    assert ledger["evidence"]["TanStack Query"] == ["employer/app"]
+
+
+def test_skillscan_reports_mapped_skills_and_candidates(tmp_path, monkeypatch):
+    monkeypatch.setattr(skills, "scan_packages",
+                        lambda roots=None, author=None:
+                        {"employer/app": ["@tanstack/react-query", "expo", "lodash"],
+                         "employer/site": ["lodash", "expo"]})
+    monkeypatch.setattr(skills, "CANDIDATES_FILE", tmp_path / "candidates.json")
+
+    result = CliRunner().invoke(skills.skillscan_app, [])
+    assert result.exit_code == 0
+    assert "TanStack Query" in result.output
+    assert "employer/app" in result.output
+    assert "lodash" in result.output, "two repos use it, so it is a candidate"
+    data = json.loads((tmp_path / "candidates.json").read_text())
+    assert "lodash" in data["candidates"]
+
+
+def test_gaps_answer_records_an_engagement(tmp_path, monkeypatch):
+    monkeypatch.setattr(skills, "CONFIRMATIONS_FILE",
+                        tmp_path / "confirmations.json")
+    result = CliRunner().invoke(skills.app,
+                                ["answer", "Cobol", "--engagement", "Foodway app"])
+    assert result.exit_code == 0
+    data = json.loads((tmp_path / "confirmations.json").read_text())
+    assert data["Cobol"]["engagement"] == "Foodway app"
+
+
+def test_gaps_answer_accepts_could_not_place(tmp_path, monkeypatch):
+    monkeypatch.setattr(skills, "CONFIRMATIONS_FILE",
+                        tmp_path / "confirmations.json")
+    result = CliRunner().invoke(skills.app,
+                                ["answer", "Cobol", "--could-not-place"])
+    assert result.exit_code == 0
+    data = json.loads((tmp_path / "confirmations.json").read_text())
+    assert data["Cobol"]["engagement"] is None
+    assert "stays a gap" in result.output
+
+
+def test_gaps_answer_requires_one_flag(tmp_path, monkeypatch):
+    monkeypatch.setattr(skills, "CONFIRMATIONS_FILE",
+                        tmp_path / "confirmations.json")
+    result = CliRunner().invoke(skills.app, ["answer", "Cobol"])
+    assert result.exit_code == 2
 
 
 def test_generate_refuses_a_cv_that_claims_an_unproven_skill(tmp_path, monkeypatch):
