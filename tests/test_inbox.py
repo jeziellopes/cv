@@ -279,3 +279,66 @@ def test_skip_refuses_an_applied_capture_from_the_cli(base):
     result = runner.invoke(inbox.app, ["skip", "starian", "--reason", "x"])
     assert result.exit_code == 1
     assert inbox.E_ALREADY_APPLIED in result.output
+
+
+# ---- capture repair (spec 0011) ----------------------------
+
+DAMAGED = {
+    "title": "Remote",
+    "company": "Acme",
+    "location": "",
+    "url": "https://www.linkedin.com/jobs/view/222/",
+    "description": "Requisitos: React, TypeScript e testes automatizados. " * 5,
+}
+
+
+@pytest.fixture
+def damaged_acme(tmp_path, monkeypatch):
+    monkeypatch.setattr(inbox, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(inbox, "LEDGER", tmp_path / "inbox.json")
+    monkeypatch.setattr(inbox, "_linkedin_title",
+                        lambda job_id: "Software Engineer")
+    inbox.save_capture(DAMAGED, tmp_path, match=10)
+    return tmp_path
+
+
+def test_title_is_damaged_detects_the_location_residue():
+    assert inbox.title_is_damaged({"title": "Remote"})
+    assert inbox.title_is_damaged({"title": "São Paulo"})
+    assert not inbox.title_is_damaged({"title": "Software Engineer"})
+    assert inbox.title_is_damaged({"title": ""})
+
+
+def test_repair_is_a_dry_run_by_default(damaged_acme):
+    result = runner.invoke(inbox.app, ["repair", "--slug", "acme"])
+    assert result.exit_code == 0
+    assert "dry run" in result.output
+    entry = inbox.load_ledger()[0]
+    assert entry["title"] == "Remote"
+    assert entry["location"] == ""
+
+
+def test_repair_rewrites_the_damaged_capture(damaged_acme):
+    result = runner.invoke(inbox.app, ["repair", "--slug", "acme", "--apply"])
+    assert result.exit_code == 0
+    entry = inbox.load_ledger()[0]
+    assert entry["title"] == "Software Engineer"
+    assert entry["location"] == "Remote", "the corrupted title is the location"
+    header = (damaged_acme / "triage" / "acme" / "description.md").read_text()
+    assert header.startswith("Software Engineer\nAcme\nRemote\n")
+    assert "Requisitos: React" in header
+
+
+def test_repair_leaves_a_capture_alone_when_no_title_source(tmp_path, monkeypatch):
+    monkeypatch.setattr(inbox, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(inbox, "LEDGER", tmp_path / "inbox.json")
+    monkeypatch.setattr(inbox, "_linkedin_title",
+                        lambda job_id: "")
+    inbox.save_capture(dict(DAMAGED,
+                            url="https://example.com/no-linkedin",
+                            description="um texto de vaga sem titulo claro"), 
+                       tmp_path, match=10)
+    result = runner.invoke(inbox.app, ["repair", "--slug", "acme", "--apply"])
+    assert result.exit_code == 0
+    assert "left alone" in result.output
+    assert inbox.load_ledger()[0]["title"] == "Remote"

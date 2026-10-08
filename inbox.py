@@ -23,6 +23,7 @@ import secrets
 import shutil
 import unicodedata
 import urllib.parse
+import urllib.request
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -232,6 +233,170 @@ def save_capture(payload: dict, base_dir: Optional[Path] = None,
         entries.append(entry)
     save_ledger(entries)
     return capture
+
+
+# Which captured "titles" are actually locations: the residue of the extraction
+# bug that spec 0010 fixed for new captures. `cv inbox repair` fixes the residue.
+LOCATION_WORDS = {
+    "remote", "remoto", "remota", "remotely", "100% remoto", "hibrido",
+    "híbrido", "hibrida", "híbrida", "presencial", "presential", "onsite",
+    "on-site", "on site", "home office", "homeoffice", "são paulo", "sao paulo",
+    "são paulo, brasil", "sao paulo, brasil", "brasil", "brazil",
+    "guarulhos", "belo horizonte", "rio de janeiro",
+}
+# The job title element of LinkedIn's guest detail page, stable across the
+# class renames that broke the extension's selectors.
+_TITLE_TAG_RE = re.compile(r'class="top-card-layout__title[^"]*"[^>]*>(.*?)</', re.S)
+_TITLE_HINT_RE = re.compile(
+    r"(engineer|developer|develop|dev\b|engenheiro|programador|analista|analyst|"
+    r"desenvolvedor|software|front-?end|back-?end|full-?stack|senior|sênior|pleno|"
+    r"junior|júnior|estagi|arquiteto|architect|designer|product manager|pm|"
+    r"react|node|backend|frontend)", re.I)
+
+
+def _norm_for_repair(value: str) -> str:
+    return " ".join(str(value or "").lower().split())
+
+
+def title_is_damaged(entry: dict) -> bool:
+    """Whether a capture's title is really its location, stored by the bug."""
+    title = str(entry.get("title", "")).strip()
+    if not title:
+        return True
+    low = _norm_for_repair(title)
+    if low in LOCATION_WORDS:
+        return True
+    location = str(entry.get("location", "")).strip()
+    return bool(location) and _norm_for_repair(location) == low
+
+
+def _linkedin_title(job_id: str) -> str:
+    """The posting's real title from LinkedIn's guest detail page."""
+    if not re.fullmatch(r"\d+", str(job_id or "")):
+        return ""
+    try:
+        html = urllib.request.urlopen(
+            urllib.request.Request(
+                "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/"
+                + str(job_id),
+                headers={"User-Agent": "Mozilla/5.0"}), timeout=25
+        ).read().decode("utf-8", "replace")
+    except Exception:  # noqa: BLE001 - a blocked fetch is a missing title
+        return ""
+    match = _TITLE_TAG_RE.search(html)
+    if not match:
+        return ""
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", match.group(1))).strip()
+
+
+def _first_title_from_body(body: str) -> str:
+    """A short standalone line that reads like a job title, or empty."""
+    for line in (body or "").splitlines():
+        title = line.strip()
+        if not title or len(title) > 90:
+            continue
+        low = _norm_for_repair(title)
+        if re.match(r"^(sobre a vaga|descri.ão da vaga|responsabilidades|"
+                    r"requisitos|a empresa|sobre nós|benefícios)", low):
+            continue
+        if title[0].isupper() and _TITLE_HINT_RE.search(low):
+            return title
+    return ""
+
+
+def _jd_parts(text: str) -> tuple[list[str], str]:
+    """The header lines and the body of a captured JD file.
+
+    The header is title, company, location, url, plus an optional apply line.
+    Location may be empty, which puts a blank line inside the header, so the
+    body is the content after the first blank that sits past the url field.
+    """
+    lines = text.splitlines()
+    body_start = None
+    for index, line in enumerate(lines):
+        if line == "" and index >= 4:
+            body_start = index
+            break
+    if body_start is None:
+        return lines, ""
+    return lines[:body_start], "\n".join(lines[body_start + 1:])
+
+
+def repair_capture(entry: dict, base_dir: Optional[Path] = None,
+                   fetch=None, dry_run: bool = False) -> dict:
+    """Re-derive a damaged capture's title, location and score (spec 0011).
+
+    The title comes from LinkedIn's guest page by posting id, falling back to
+    the first title-looking line in the JD. Nothing is written in a dry run.
+    """
+    base_dir = base_dir or BASE_DIR
+    fetch = fetch or _linkedin_title
+    slug = str(entry.get("slug", ""))
+    root = ("triage" if (entry.get("triage")
+                         or str(entry.get("status", "")).lower() in _TRIAGE)
+            else "companies")
+    jd = base_dir / root / slug / "description.md"
+    if not jd.is_file():
+        return {"slug": slug, "ok": False, "reason": "no JD file"}
+
+    head, body = _jd_parts(jd.read_text(encoding="utf-8"))
+    url = str(entry.get("url", ""))
+    job_id_m = re.search(r"/jobs/view/(\d+)", url)
+    title = fetch(job_id_m.group(1)) if job_id_m else ""
+    if not title:
+        title = _first_title_from_body(body)
+    if not title:
+        return {"slug": slug, "ok": False, "reason": "no title source"}
+
+    old_title = str(entry.get("title", "")).strip()
+    location = str(entry.get("location", "")).strip()
+    if not location and _norm_for_repair(old_title) in LOCATION_WORDS:
+        location = old_title
+
+    match = score_payload({
+        "title": title,
+        "company": str(entry.get("company", "")),
+        "location": location,
+        "url": url,
+        "description": body.strip(),
+    }, base_dir)
+
+    report = {"slug": slug, "ok": True, "title": title, "location": location,
+              "match": match, "dry": dry_run}
+    if match is None:
+        report["triage"] = bool(entry.get("triage"))
+    else:
+        report["triage"] = match < MIN_MATCH
+    if dry_run:
+        return report
+
+    entries = load_ledger()
+    for candidate in entries:
+        if candidate.get("slug") != slug:
+            continue
+        candidate["title"] = title
+        candidate["location"] = location
+        if match is not None:
+            candidate["match"] = match
+            candidate["triage"] = report["triage"]
+            candidate["status"] = "triaged" if report["triage"] else "new"
+
+    lines = list(head)
+    if len(lines) >= 4:
+        lines[0] = title
+        lines[2] = location
+    if root == "triage" and not report["triage"]:
+        moved = base_dir / "companies" / slug / "description.md"
+        moved.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(jd), str(moved))
+        try:
+            (base_dir / "triage" / slug).rmdir()
+        except OSError:
+            pass
+        jd = moved
+    jd.write_text("\n".join(lines) + "\n\n" + body, encoding="utf-8")
+    save_ledger(entries)
+    return report
 
 
 def save_diagnose(payload: dict, base_dir: Optional[Path] = None) -> Path:
@@ -998,6 +1163,42 @@ def apply_command(
         import webbrowser
 
         webbrowser.open(url)
+
+
+@app.command("repair")
+def repair_command(
+    slug: Optional[str] = typer.Option(None, "--slug",
+                                       help="one capture; default is every damaged one"),
+    apply: bool = typer.Option(False, "--apply",
+                               help="write the repairs; a dry run by default"),
+) -> None:
+    """Re-derive damaged capture titles from LinkedIn and re-score them."""
+    if slug:
+        entries = [e for e in load_ledger() if e.get("slug") == slug]
+        if not entries:
+            typer.echo(f"No capture {slug}.", err=True)
+            raise typer.Exit(code=1)
+    else:
+        entries = [e for e in load_ledger() if title_is_damaged(e)]
+    if not entries:
+        typer.echo("Nothing to repair.")
+        return
+
+    touched = 0
+    for entry in entries:
+        report = repair_capture(entry, BASE_DIR, dry_run=not apply)
+        name = str(entry.get("slug", ""))
+        if not report.get("ok"):
+            typer.echo(f"  {name:26} left alone ({report.get('reason', 'no title')})")
+            continue
+        touched += 1
+        where = "triaged" if report.get("triage") else "in the queue"
+        verb = "would be" if report.get("dry") else "is now"
+        score = "unscored" if report.get("match") is None \
+            else f"{report.get('match')}%"
+        typer.echo(f"  {name:26} {report.get('title')!r} {verb} {where} ({score})")
+    if not apply and touched:
+        typer.echo("\ndry run: nothing was written. Pass --apply to repair.")
 
 
 @app.command("status")
