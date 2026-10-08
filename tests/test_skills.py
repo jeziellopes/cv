@@ -185,10 +185,14 @@ def test_import_evidence_maps_imported_packages_to_skills():
 
 def test_build_merges_codepath_evidence_with_import_evidence(
         tmp_path, monkeypatch):
+    monkeypatch.setattr(skills, "_collect_additions",
+                        lambda roots=None, author=None: {"a": "x", "b": "y"})
     monkeypatch.setattr(skills, "scan_evidence",
-                        lambda names, roots=None, author=None: {"React": ["a"]})
+                        lambda names, roots=None, author=None, additions=None:
+                        {"React": ["a"]})
     monkeypatch.setattr(skills, "import_evidence",
-                        lambda config=None, roots=None, author=None:
+                        lambda config=None, roots=None, author=None,
+                        per_repo=None, additions=None:
                         {"TanStack Query": ["employer/app"]})
     ledger = skills.build(["React", "TanStack Query"])
     assert ledger["evidence"]["React"] == ["a"]
