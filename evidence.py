@@ -74,11 +74,18 @@ def is_noise(rel: str) -> bool:
 
 
 def default_author() -> str:
-    """The git identity for this machine, when no author is given."""
-    for args in (["config", "user.name"], ["config", "--global", "user.name"]):
-        out = subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
-        if out:
-            return out
+    """The identity used to attribute evidence, preferring the stable email.
+
+    Display names change between employers: the same author has committed as
+    Jeziel Lopes, Jeziel Carvalho and jlllo. The email is the constant, so it is
+    what the scan matches on, or a whole backup volume reads as unclaimed.
+    """
+    for key in ("user.email", "user.name"):
+        for args in (["config", key], ["config", "--global", key]):
+            out = subprocess.run(["git", *args], capture_output=True,
+                                 text=True).stdout.strip()
+            if out:
+                return out
     return ""
 
 
