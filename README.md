@@ -2,14 +2,20 @@
 
 > Your resume. Your code. Always up to date.
 
-A free, open-source resume generator and application pipeline. Edit `cv.json`, run one command, get an ATS-checked PDF, and take a captured job from the browser through a tailored CV to a recorded application. Nothing is claimed on a CV that a repository cannot prove.
+A pipeline for job applications that only claims what code proves. A Chrome
+extension captures a posting's JD from LinkedIn, and everything after that
+runs through the `cv` CLI: the search that finds postings, the inbox that
+holds each capture, the evidence ledgers that skillscan and gaps keep, the
+tailored and ATS-checked CV render, and the record of the application.
+`cv.json` is the base resume every tailored CV starts from. Nothing is
+claimed on a CV that a repository cannot prove.
 
 ## The loop
 
 Every application moves through the same steps, and the tool shows where it stands at each one.
 
 ```
-capture   a job is saved from the browser into the queue
+capture   the extension saves a job from the browser into the queue
 tailor    answers which projects to include and which may be named
 build     cv generate writes the tailored CV and the PDF
 gate      ats-check and the skill gate refuse anything unproven
@@ -17,6 +23,24 @@ decide    applied, skipped, or profile-only, recorded in the ledger
 ```
 
 `cv inbox status` is the one screen: it counts each step, dates every JD, and reports any CV that claims a skill nothing proves.
+
+The first step lives in your browser, not in a command. A small Chrome
+extension puts an **Apply with CV** button on LinkedIn's job pages: it shows
+where that job already stands in the queue, and one click hands the JD to it.
+An application runs the whole path:
+
+```bash
+cv search "react senior remote"       # find postings, ranked by fit
+(click capture in the browser)         # the extension saves the job
+cv inbox next                          # oldest capture that still needs a CV
+cv tailor <slug>                       # the questions this posting asks
+cv generate --company <slug> --pdf     # the gated, tailored CV
+cv inbox applied <slug>                # the application is recorded
+```
+
+The extension's one-time setup lives in
+[The inbox and the extension](#the-inbox-and-the-extension). The base resume
+and one-off PDFs come from the Quick start below.
 
 ## Project structure
 
