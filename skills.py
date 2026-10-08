@@ -36,6 +36,14 @@ ROOT = Path(__file__).resolve().parent
 COMPANIES = ROOT / "companies"
 CONFIG_FILE = ROOT / "skills.json"
 GAPS_FILE = ROOT / "gaps.json"
+# Unmapped packages the discovery pass found in authored source, waiting for
+# the operator to approve (spec 0009). Gitignored like gaps.json: it reports
+# what an employer's repository imports.
+CANDIDATES_FILE = ROOT / "candidates.json"
+# Operator confirmations: a demanded skill the scan could not place, affirmed
+# by hand with the engagement that used it (ADR 0007). Gitignored for the same
+# reason: the engagement names past employers.
+CONFIRMATIONS_FILE = ROOT / "confirmations.json"
 GENERAL_CVS = ("cv.json", "cv-pt.json")
 
 # Only source counts as usage. A dependency declared in a manifest, an object
@@ -243,6 +251,161 @@ def scan_evidence(names: list[str], roots=None, author: Optional[str] = None
     return {name: sorted(repos) for name, repos in per_skill.items() if repos}
 
 
+# ---- discovery: packages imported by authored source ----------------------
+
+# A dependency named in source is a stronger signal than one named in a probe:
+# it is the actual import line, not a word that might appear in prose. The
+# mapping in skills.json binds packages to skills, and this pass collects the
+# packages and resolves them. Node core and Python stdlib modules appear in
+# every file and carry no signal, so they are excluded from candidates.
+BUILTINS = {"assert", "async_hooks", "buffer", "child_process", "cluster",
+            "console", "constants", "crypto", "dgram", "diagnostics_channel",
+            "dns", "domain", "events", "fs", "http", "http2", "https",
+            "inspector", "module", "net", "os", "path", "perf_hooks",
+            "process", "punycode", "querystring", "readline", "repl", "stream",
+            "string_decoder", "timers", "tls", "trace_events", "tty", "url",
+            "util", "v8", "vm", "wasi", "worker_threads", "zlib", "test"}
+
+PY_STDLIB = {"os", "sys", "json", "re", "time", "datetime", "math", "random",
+             "string", "logging", "pathlib", "collections", "functools",
+             "itertools", "subprocess", "typing", "abc", "asyncio", "copy",
+             "argparse", "hashlib", "uuid", "socket", "threading", "queue",
+             "dataclasses", "enum", "io", "glob", "shutil", "statistics",
+             "tempfile", "textwrap", "traceback", "unittest", "urllib",
+             "warnings", "weakref", "contextlib", "base64", "bisect", "calendar",
+             "cmath", "csv", "decimal", "difflib", "dis", "email", "fileinput",
+             "fnmatch", "getpass", "gettext", "gc", "gzip", "heapq", "hmac",
+             "html", "http", "importlib", "inspect", "keyword", "linecache",
+             "locale", "marshal", "mimetypes", "numbers", "operator", "optparse",
+             "pickle", "pkgutil", "platform", "pprint", "profile", "pstats",
+             "pydoc", "quopri", "reprlib", "select", "selectors", "signal",
+             "site", "smtplib", "socketserver", "sqlite3", "ssl", "struct",
+             "tabnanny", "tarfile", "telnetlib", "test", "timeit", "tokenize",
+             "tomllib", "turtle", "types", "unicodedata", "xml", "zipfile",
+             "zoneinfo", "secrets", "stringprep"}
+
+_JS_IMPORT_RE = re.compile(
+    r"""
+    \bimport\b[^;"']*?\bfrom\s*['"]([^'"]+)['"]
+    | \bimport\s*['"]([^'"]+)['"]
+    | \bexport\b[^;"']*?\bfrom\s*['"]([^'"]+)['"]
+    | \brequire\s*\(\s*['"]([^'"]+)['"]\s*\)
+    | \bimport\s*\(\s*['"]([^'"]+)['"]\s*\)
+    """, re.VERBOSE)
+_PY_IMPORT_RE = re.compile(r"^\s*(?:from|import)\s+([A-Za-z_][A-Za-z0-9_.]*)",
+                           re.MULTILINE)
+_GO_IMPORT_RE = re.compile(r'^\s*import\s+(?:[A-Za-z_]\w*\s+)?["]([^"\n]+)["]')
+_RB_IMPORT_RE = re.compile(r"\brequire\s*['\"]([^'\"]+)['\"]")
+
+
+def _pkg_base(pkg: str) -> str:
+    """A module specifier reduced to its importable package.
+
+    `@scope/name/path` keeps its scope, `name/path` keeps its leading segment,
+    and relative or builtin modules mean nothing to an employer.
+    """
+    pkg = pkg.strip().strip("'\"")
+    if not pkg or pkg.startswith("."):
+        return ""
+    if pkg.startswith("@/"):
+        return ""  # a TypeScript path alias to src/, never a package
+    if pkg.startswith("@"):
+        parts = pkg.split("/")
+        base = "/".join(parts[:2]) if len(parts) >= 2 else pkg
+    else:
+        base = pkg.split("/")[0]
+    base = base.lower()
+    if base.startswith("node:"):
+        base = base.split(":", 1)[1]
+    return "" if base in BUILTINS or base in PY_STDLIB else base
+
+
+def _packages_line(text: str, low: str) -> set[str]:
+    if low.endswith((".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")):
+        out: set[str] = set()
+        for groups in _JS_IMPORT_RE.findall(text):
+            for pkg in groups:
+                base = _pkg_base(pkg)
+                if base:
+                    out.add(base)
+        return out
+    if low.endswith(".py"):
+        out = set()
+        for match in _PY_IMPORT_RE.finditer(text):
+            base = match.group(1).split(".")[0].lower()
+            if base:
+                out.add(base)
+        return out
+    if low.endswith(".go"):
+        return {m.lower() for m in _GO_IMPORT_RE.findall(text) if m}
+    if low.endswith(".rb"):
+        return {base for m in _RB_IMPORT_RE.findall(text)
+                if (base := _pkg_base(m))}
+    return set()
+
+
+def scan_packages(roots=None, author: Optional[str] = None
+                  ) -> dict[str, list[str]]:
+    """Repo label -> packages its authored source imports.
+
+    Shares the walk with scan_evidence, so employer repositories under every
+    configured root count the same as ~/lab (spec 0009).
+    """
+    config = load_config()
+    if roots is None:
+        roots = config.get("roots") or None
+    roots = evidence.resolve_roots(roots)
+    if author is None:
+        authors = config.get("authors") or []
+        author = ("\\|".join(authors) if authors
+                  else evidence.default_author())
+
+    per_repo: dict[str, set[str]] = {}
+    for repo in evidence.find_repos(roots):
+        if repo.name in SELF_REPOS:
+            continue
+        label = evidence.repo_label(repo, roots)
+        for rel in evidence.authored_files(repo, evidence.SUFFIXES, author):
+            if not _is_usage_file(rel):
+                continue
+            path = repo / rel
+            try:
+                if path.stat().st_size > evidence.MAX_BYTES:
+                    continue
+                text = path.read_text(errors="replace")
+            except OSError:
+                continue
+            for pkg in _packages_line(text, rel.lower()):
+                per_repo.setdefault(label, set()).add(pkg)
+    return {label: sorted(pkgs) for label, pkgs in per_repo.items() if pkgs}
+
+
+def import_evidence(config: Optional[dict] = None, roots=None,
+                    author: Optional[str] = None,
+                    per_repo: Optional[dict] = None) -> dict[str, list[str]]:
+    """Skill -> repos whose authored source imports one of its packages.
+
+    The mapping in skills.json is the reviewable artifact: a package binds its
+    skill, and nothing becomes a skill without a mapping or an approval.
+    """
+    config = config if config is not None else load_config()
+    if per_repo is None:
+        per_repo = scan_packages(roots, author)
+    pkg_to_skill: dict[str, str] = {}
+    for skill, pkgs in config.get("mapping", {}).items():
+        for pkg in pkgs:
+            base = _pkg_base(pkg)
+            if base:
+                pkg_to_skill.setdefault(base, skill)
+    mapped: dict[str, set[str]] = {}
+    for label, pkgs in per_repo.items():
+        for pkg in pkgs:
+            skill = pkg_to_skill.get(pkg)
+            if skill:
+                mapped.setdefault(skill, set()).add(label)
+    return {skill: sorted(labels) for skill, labels in mapped.items() if labels}
+
+
 # ---- the ledger -------------------------------------------
 
 def build(names: Optional[list[str]] = None, roots=None,
@@ -250,19 +413,50 @@ def build(names: Optional[list[str]] = None, roots=None,
     config = load_config()
     claimed = claimed_tags()
     names = names if names is not None else skill_names(config, claimed)
+    evidence_map = scan_evidence(names, roots, author)
+    for skill, repos in import_evidence(config, roots, author).items():
+        evidence_map.setdefault(skill, set())
+        combined = set(evidence_map[skill])
+        combined.update(repos)
+        evidence_map[skill] = sorted(combined)
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "skills": names,
-        "evidence": scan_evidence(names, roots, author),
+        "evidence": evidence_map,
         "demand": {k: sorted(v) for k, v in demand(names).items()},
         "soft": sorted(soft_set(config)),
         "allowed": allowed_map(config),
     }
 
 
-def classify(ledger: dict, config: Optional[dict] = None) -> dict:
-    """Split the portfolio into evidenced, soft, allowed, and gaps."""
+def load_confirmations(path: Optional[Path] = None) -> dict:
+    path = path or CONFIRMATIONS_FILE
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except ValueError:
+        return {}
+
+
+def save_confirmations(data: dict, path: Optional[Path] = None) -> None:
+    path = path or CONFIRMATIONS_FILE
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+
+
+def classify(ledger: dict, config: Optional[dict] = None,
+             confirmations: Optional[dict] = None) -> dict:
+    """Split the portfolio into evidenced, soft, allowed, confirmed, and gaps.
+
+    Gaps follow ADR 0007: a posting asks for a skill, the code does not prove
+    it, and the operator was asked and could not place it. A skill the operator
+    has not been asked about yet lands in needs_answer, which is the report
+    doing the asking.
+    """
     config = config if config is not None else load_config()
+    confirmations = confirmations if confirmations is not None \
+        else load_confirmations()
+    conf_norm = {normalize(k): v for k, v in confirmations.items()}
     evidence_by_skill = ledger.get("evidence", {})
     wanted = ledger.get("demand", {})
     claimed = claimed_tags()
@@ -270,7 +464,7 @@ def classify(ledger: dict, config: Optional[dict] = None) -> dict:
     soft = soft_set(config)
     allowed = allowed_map(config)
 
-    gaps, starved, soft_hits = {}, {}, {}
+    gaps, starved, soft_hits, needs_answer, confirmed = {}, {}, {}, {}, {}
     for name in ledger.get("skills", []):
         key = normalize(name)
         if key in soft:
@@ -281,16 +475,32 @@ def classify(ledger: dict, config: Optional[dict] = None) -> dict:
         if key in allowed:
             continue
         in_cvs = sorted(claimed.get(name, []))
+        conf = conf_norm.get(key)
         if wanted.get(name):
-            gaps[name] = {"postings": wanted[name], "claimed_in": in_cvs}
-        if in_cvs:
-            starved[name] = in_cvs
-    return {"gaps": gaps, "starved": starved, "soft": soft_hits}
+            if conf is not None and conf.get("engagement"):
+                confirmed[name] = {"engagement": conf["engagement"],
+                                   "postings": sorted(wanted[name])}
+            elif conf is not None:
+                gaps[name] = {"postings": wanted[name], "claimed_in": in_cvs}
+            else:
+                needs_answer[name] = sorted(wanted[name])
+        elif in_cvs:
+            if conf is not None and conf.get("engagement"):
+                confirmed[name] = {"engagement": conf["engagement"],
+                                   "postings": []}
+            else:
+                starved[name] = in_cvs
+    return {"gaps": gaps, "needs_answer": needs_answer,
+            "confirmed": confirmed, "starved": starved, "soft": soft_hits}
 
 
-def unproven_in(cv: dict, ledger: dict, config: Optional[dict] = None) -> list[str]:
-    """Tags a single CV claims that are neither soft, allowed, nor evidenced."""
+def unproven_in(cv: dict, ledger: dict, config: Optional[dict] = None,
+                confirmations: Optional[dict] = None) -> list[str]:
+    """Tags a single CV claims that are neither soft, allowed, confirmed, nor evidenced."""
     config = config if config is not None else load_config()
+    confirmations = confirmations if confirmations is not None \
+        else load_confirmations()
+    conf_norm = {normalize(k): v for k, v in confirmations.items()}
     evidence_by_skill = {normalize(k): v
                          for k, v in ledger.get("evidence", {}).items()}
     soft = soft_set(config)
@@ -300,6 +510,9 @@ def unproven_in(cv: dict, ledger: dict, config: Optional[dict] = None) -> list[s
         for tag in group.get("tags", []):
             key = normalize(tag)
             if not key or key in soft or key in allowed:
+                continue
+            conf = conf_norm.get(key)
+            if conf is not None and conf.get("engagement"):
                 continue
             if evidence_by_skill.get(key) or evidence_by_skill.get(normalize(tag)):
                 continue
@@ -339,11 +552,32 @@ def _render(ledger: dict, config: dict, show_soft: bool) -> None:
     parts = classify(ledger, config)
     claimed = claimed_tags()
     names = ledger.get("skills", [])
+    confirmed = parts["confirmed"]
     print(f"{len(names)} skills | {len(ledger.get('demand', {}))} asked for by a posting "
-          f"| {len(ledger.get('evidence', {}))} with evidence\n")
+          f"| {len(ledger.get('evidence', {}))} with evidence "
+          f"| {len(confirmed)} affirmed by you\n")
+
+    needs_answer = parts["needs_answer"]
+    print(f"ask the operator (a posting asks, nothing proves yet) "
+          f"({len(needs_answer)})")
+    if needs_answer:
+        for name, postings in sorted(needs_answer.items(),
+                                     key=lambda kv: (-len(kv[1]), kv[0])):
+            posts = ", ".join(postings)[:40]
+            print(f"  {name:28} {len(postings):>2} posting(s)  {posts}")
+            print(f"      cv gaps answer --skill {name!r} "
+                  f"--engagement ENGAGEMENT | --could-not-place")
+    else:
+        print("  none")
+
+    if confirmed:
+        print(f"\naffirmed by you, with the engagement ({len(confirmed)})")
+        for name, info in sorted(confirmed.items()):
+            posts = f", {len(info['postings'])} posting(s)" if info["postings"] else ""
+            print(f"  {name:28} {info['engagement']}{posts}")
 
     gaps = parts["gaps"]
-    print(f"gaps: a posting asks, no evidence ({len(gaps)})")
+    print(f"\ngaps (a posting asks, you could not place it) ({len(gaps)})")
     if gaps:
         for name, info in sorted(gaps.items(),
                                  key=lambda kv: (-len(kv[1]["postings"]), kv[0])):
@@ -428,6 +662,112 @@ def gaps_check() -> None:
     typer.echo(f"\n{len(results) - len(bad)}/{len(results)} CVs claim only proven skills.")
     if bad:
         raise typer.Exit(code=1)
+
+
+@app.command("answer")
+def gaps_answer(
+    skill: str = typer.Argument(..., help="the skill name, as the report wrote it"),
+    engagement: Optional[str] = typer.Option(None, "--engagement", "-e",
+                                             help="past engagement that used it"),
+    could_not_place: bool = typer.Option(False, "--could-not-place",
+                                         help="asked and could not place it anywhere"),
+    note: Optional[str] = typer.Option(None, "--note"),
+) -> None:
+    """Record the operator's answer for a demanded, unevidenced skill.
+
+    An engagement moves the skill out of the gaps. --could-not-place keeps it
+    there, which is the honest end state when no employer ever used it.
+    """
+    if engagement and could_not_place:
+        typer.echo("give --engagement OR --could-not-place, not both", err=True)
+        raise typer.Exit(code=2)
+    if not engagement and not could_not_place:
+        typer.echo("give --engagement ENGAGEMENT or --could-not-place", err=True)
+        raise typer.Exit(code=2)
+
+    confirmation = {"engagement": None if could_not_place else engagement,
+                    "note": note,
+                    "when": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+    saved = load_confirmations()
+    saved[skill] = confirmation
+    save_confirmations(saved)
+    if could_not_place:
+        typer.echo(f"recorded: {skill} stays a gap (could not place it)")
+    else:
+        typer.echo(f"recorded: {skill} moves out of the gaps "
+                   f"(affirmed: {engagement})")
+
+
+skillscan_app = typer.Typer(
+    help="Packages authored source imports, mapped to skills or listed as candidates.")
+
+
+@skillscan_app.callback(invoke_without_command=True)
+def skillscan(
+    root: Optional[list[str]] = typer.Option(None, "--root", help="repeatable"),
+    author: Optional[str] = typer.Option(None, "--author"),
+) -> None:
+    """Discover skills from the code the operator actually wrote (spec 0009)."""
+    config = load_config()
+    if root:
+        roots = evidence.resolve_roots(root)
+    else:
+        roots = evidence.resolve_roots(config.get("roots") or None)
+    if author is None:
+        authors = config.get("authors") or []
+        author = ("\\|".join(authors) if authors else evidence.default_author())
+
+    per_repo = scan_packages(None if not root else root, author)
+    mapping = config.get("mapping", {})
+    pkg_to_skill: dict[str, str] = {}
+    for skill, pkgs in mapping.items():
+        for pkg in pkgs:
+            base = _pkg_base(pkg)
+            if base:
+                pkg_to_skill.setdefault(base, skill)
+
+    total = sum(len(pkgs) for pkgs in per_repo.values())
+    typer.echo(f"{len(per_repo)} repos, {total} packages under "
+               f"{', '.join(str(r) for r in roots)}")
+    typer.echo(f"author filter: {author or '(none: every commit counts)'}\n")
+
+    for label in sorted(per_repo):
+        pkgs = per_repo[label]
+        mapped: dict[str, list[str]] = {}
+        unmapped: list[str] = []
+        for pkg in pkgs:
+            skill = pkg_to_skill.get(pkg)
+            if skill:
+                mapped.setdefault(skill, []).append(pkg)
+            else:
+                unmapped.append(pkg)
+        typer.echo(f"{label}:")
+        for skill in sorted(mapped):
+            packages = ", ".join(sorted(mapped[skill]))[:86]
+            typer.echo(f"    {skill:22} <- {packages}")
+        if unmapped:
+            shown = ", ".join(unmapped[:6])
+            more = f" ... and {len(unmapped) - 6} more" if len(unmapped) > 6 else ""
+            typer.echo(f"    candidate: {shown}{more}")
+
+    used: dict[str, set[str]] = {}
+    for label, pkgs in per_repo.items():
+        for pkg in pkgs:
+            if pkg in pkg_to_skill:
+                continue
+            used.setdefault(pkg, set()).add(label)
+    strong = {pkg: sorted(labels) for pkg, labels in used.items()
+              if len(labels) >= 2}
+    ordered = sorted(strong.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+    CANDIDATES_FILE.write_text(json.dumps(
+        {"generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+         "candidates": dict(ordered[:200])},
+        ensure_ascii=False, indent=2) + "\n")
+
+    typer.echo(f"\ncandidates in gitignored {CANDIDATES_FILE.name}: "
+               f"{len(ordered[:200])} packages used in 2+ repos")
+    for pkg, labels in ordered[:20]:
+        typer.echo(f"    {pkg:38} {len(labels):>2} repos  {', '.join(labels[:3])}")
 
 
 if __name__ == "__main__":

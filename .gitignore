@@ -37,6 +37,12 @@ claim-evidence.json
 # and it names nothing.
 gaps.json
 
+# Packages the discovery pass found in authored source, awaiting approval, and
+# the operator's affirmations for skills the scan could not place. Local only:
+# both name employer work.
+candidates.json
+confirmations.json
+
 # Python
 __pycache__/
 *.py[cod]
@@ -100,6 +106,10 @@ yarn.lock
 # operator is applying to, and the token guards the local endpoint.
 inbox.json
 .cv-inbox-token
+
+# Postings captured below the match minimum, awaiting a promote/drop call.
+# Local only, for the same reason as companies/: it names postings.
+triage/
 
 # What the page contained when extraction failed, so a broken
 # selector can be fixed from the repository.

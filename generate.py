@@ -90,6 +90,9 @@ app.add_typer(guards.names_app, name="names")
 # Which claims a repository backs, and which a posting asks for but nothing does.
 app.add_typer(skills.app, name="gaps")
 
+# The reverse lens: which skills the authored source itself discovers.
+app.add_typer(skills.skillscan_app, name="skillscan")
+
 # Postings captured below the match minimum, waiting to be promoted or dropped.
 app.add_typer(inbox.triage_app, name="triage")
 
