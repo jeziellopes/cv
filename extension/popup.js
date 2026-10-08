@@ -99,7 +99,7 @@ async function checkMatch(slug) {
   renderTab();
   setStatus(
     res.match == null ? `${slug}: could not score.`
-      : `${slug}: CV fit ${res.match}% (minimum 60%).`,
+      : `${slug}: CV fit ${res.match}% (minimum ${res.min == null ? "?" : res.min}%).`,
     "ok"
   );
 }
