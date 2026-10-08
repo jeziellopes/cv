@@ -304,6 +304,18 @@ def _first_title_from_body(body: str) -> str:
     return ""
 
 
+def _capture_body(entry: dict, base_dir: Optional[Path] = None) -> str:
+    """The JD body of a capture, wherever its file sits."""
+    base_dir = base_dir or BASE_DIR
+    root = "triage" if (entry.get("triage")
+                        or str(entry.get("status", "")).lower() in _TRIAGE) \
+        else "companies"
+    jd = base_dir / root / str(entry.get("slug", "")) / "description.md"
+    if not jd.is_file():
+        return str(entry.get("description", ""))
+    return _jd_parts(jd.read_text(encoding="utf-8"))[1]
+
+
 def _jd_parts(text: str) -> tuple[list[str], str]:
     """The header lines and the body of a captured JD file.
 
@@ -1163,6 +1175,60 @@ def apply_command(
         import webbrowser
 
         webbrowser.open(url)
+
+
+@app.command("score")
+def score_command(slug: str) -> None:
+    """Show what drives a capture's fit percent, piece by piece."""
+    entry = find_entry(slug)
+    if not entry:
+        typer.echo(f"No capture with slug {slug}.", err=True)
+        raise typer.Exit(code=1)
+    import search
+
+    base_dir = BASE_DIR
+    cv_path = base_dir / "cv.json"
+    if not cv_path.is_file():
+        typer.echo("No cv.json to score against.", err=True)
+        raise typer.Exit(code=1)
+    try:
+        cv = json.loads(cv_path.read_text(encoding="utf-8"))
+    except ValueError:
+        typer.echo("cv.json is not valid JSON.", err=True)
+        raise typer.Exit(code=1)
+
+    job = search.Job(
+        title=str(entry.get("title", "")),
+        company=str(entry.get("company", "")),
+        location=str(entry.get("location", "")),
+        url=str(entry.get("url", "")),
+        description=_capture_body(entry, base_dir),
+        source="capture",
+    )
+    exp = search.explain(job, cv)
+    r = exp["ratios"]
+    typer.echo(f"{slug}: fit {exp['fit']}% = 0.5*jd({r['jd']:.2f}) + "
+               f"0.3*skill({r['skill']:.2f}) + 0.2*title({r['title']:.2f})")
+
+    typer.echo(f"\n  jd coverage    {exp['jd_covered']}/{exp['jd_total']} "
+               f"distinct JD terms in the CV narrative")
+    for missed in exp["jd_misses"][:20]:
+        typer.echo(f"      miss  {missed}")
+    if len(exp["jd_misses"]) > 20:
+        typer.echo(f"      ... and {len(exp['jd_misses']) - 20} more")
+
+    typer.echo(f"\n  skill coverage {exp['skills_matched']}/{exp['skills_total']} "
+               f"CV tags mentioned in the JD")
+    for skill in exp["skills_list"][:10]:
+        typer.echo(f"      hit   {skill}")
+    if len(exp["skills_list"]) > 10:
+        typer.echo(f"      ... and {len(exp['skills_list']) - 10} more")
+
+    typer.echo(f"\n  title overlap  {exp['title_overlapped']}/"
+               f"{exp['title_total']} title tokens in the CV title "
+               f"({cv.get('personal', {}).get('title', '')!r})")
+    for token in exp["title_missed"][:10]:
+        typer.echo(f"      miss  {token}")
 
 
 @app.command("repair")

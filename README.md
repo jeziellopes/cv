@@ -115,6 +115,7 @@ cv inbox profile <slug>                         # no CV wanted, LinkedIn profile
 cv inbox requeue <slug>                         # bring a profile-only capture back
 cv inbox mail [--apply] [--all]                 # record applied from Gmail confirmations
 cv inbox repair [--slug X] [--apply]            # re-derive a title the capture got wrong
+cv inbox score <slug>                           # what drives a capture's fit percent
 cv gaps [--soft]                                # skills postings ask for: answered, or needing your answer
 cv gaps answer -s X -e ENG | --could-not-place  # your answer for a demanded, unevidenced skill
 cv gaps refresh                                 # rescan repositories, rebuild the ledger

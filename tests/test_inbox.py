@@ -1,5 +1,6 @@
 """The inbox: slug safety, queue integrity, and the capture endpoint."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -336,9 +337,26 @@ def test_repair_leaves_a_capture_alone_when_no_title_source(tmp_path, monkeypatc
                         lambda job_id: "")
     inbox.save_capture(dict(DAMAGED,
                             url="https://example.com/no-linkedin",
-                            description="um texto de vaga sem titulo claro"), 
+                            description="um texto de vaga sem titulo claro"),
                        tmp_path, match=10)
     result = runner.invoke(inbox.app, ["repair", "--slug", "acme", "--apply"])
     assert result.exit_code == 0
     assert "left alone" in result.output
     assert inbox.load_ledger()[0]["title"] == "Remote"
+
+
+def test_score_command_shows_what_drives_the_fit(queued):
+    (queued / "cv.json").write_text(json.dumps({
+        "personal": {"title": "Software Engineer"},
+        "summary": "React, Next.js e NestJS.",
+        "experience": [],
+        "education": [],
+        "skills": [{"group": "g", "tags": ["React", "Next.js", "NestJS"]}],
+        "languages": [],
+    }), encoding="utf-8")
+    result = runner.invoke(inbox.app, ["score", "starian"])
+    assert result.exit_code == 0
+    assert "fit" in result.output
+    assert "jd coverage" in result.output
+    assert "skill coverage" in result.output
+    assert "title overlap" in result.output

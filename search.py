@@ -518,6 +518,48 @@ def rank(jobs: list[Job], cv: dict, query: str = "") -> list[Ranked]:
     return ranked
 
 
+def explain(job: Job, cv: dict) -> dict:
+    """The three components behind a fit percent, with counts and the terms
+    that drive each one.
+
+    A single score hides where it came from. This exposes the numerator and
+    denominator of each part, and the terms that missed, so a low fit can be
+    read as a fact rather than a mystery.
+    """
+    cv_body = _cv_text(cv).lower()
+    cv_tokens = _tokens(cv_body)
+    title_tokens = _overlap_tokens(cv.get("personal", {}).get("title", ""))
+    skill_tags = [t for g in cv.get("skills", []) for t in g.get("tags", [])]
+    skill_vocab = {t.lower() for t in skill_tags} | {
+        token for t in skill_tags for token in _tokens(t)}
+
+    keywords = _jd_terms(job.description, skill_vocab)
+    jd_hits = [k for k in keywords if k in cv_tokens]
+    jd_misses = [k for k in keywords if k not in cv_tokens]
+
+    body = (job.title + " " + job.description).lower()
+    matched = [t for t in skill_tags if t.lower() in body]
+
+    job_tokens = _overlap_tokens(job.title)
+    overlapped = sorted(set(job_tokens) & set(title_tokens))
+    missed_title = sorted(set(job_tokens) - set(title_tokens))
+
+    jd_ratio = len(jd_hits) / len(keywords) if keywords else 0.0
+    skill_ratio = len(matched) / len(skill_tags) if skill_tags else 0.0
+    title_ratio = len(overlapped) / len(job_tokens) if job_tokens else 0.0
+    return {
+        "jd_covered": len(jd_hits), "jd_total": len(keywords),
+        "jd_misses": jd_misses,
+        "skills_matched": len(matched), "skills_total": len(skill_tags),
+        "skills_list": matched,
+        "title_overlapped": len(overlapped), "title_total": len(job_tokens),
+        "title_missed": missed_title,
+        "ratios": {"jd": jd_ratio, "skill": skill_ratio, "title": title_ratio},
+        "fit": round(100 * (0.5 * jd_ratio + 0.3 * skill_ratio
+                            + 0.2 * title_ratio)),
+    }
+
+
 def slugify(name: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
     return slug or "job"

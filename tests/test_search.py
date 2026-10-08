@@ -218,6 +218,21 @@ def test_rank_is_deterministic(cv):
     assert a == b
 
 
+def test_explain_reports_the_three_components_behind_a_fit(cv):
+    job = searchmod.Job(
+        title="Software Engineer", company="Acme", location="Remote", url="",
+        description="Requisitos: React, TypeScript e testes automatizados.",
+        source="x")
+    ranked = searchmod.rank([job], cv)[0]
+    exp = searchmod.explain(job, cv)
+    assert exp["fit"] == ranked.fit
+    assert exp["jd_total"] == exp["jd_covered"] + len(exp["jd_misses"])
+    assert exp["skills_total"] == len(cv["skills"][0]["tags"])
+    assert exp["title_overlapped"] + len(exp["title_missed"]) == exp["title_total"]
+    assert abs(0.5 * exp["ratios"]["jd"] + 0.3 * exp["ratios"]["skill"]
+               + 0.2 * exp["ratios"]["title"] - exp["fit"] / 100) < 0.01
+
+
 def test_slugify():
     assert searchmod.slugify("Acme Corp") == "acme-corp"
     assert searchmod.slugify(" Loft! ") == "loft"
