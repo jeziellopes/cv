@@ -57,6 +57,38 @@ def test_resolve_roots_defaults_to_both_work_roots():
     assert [r.name for r in roots] == ["lab", "work"]
 
 
+def test_authored_additions_carry_only_the_authors_lines(tmp_path):
+    """ADR 0008: the contribution is the diff, so a teammate's added line is
+    not evidence, however much the author touched the same file."""
+    import subprocess
+
+    repo = tmp_path / "proj"
+    repo.mkdir()
+
+    def git(*args):
+        return subprocess.run(["git", "-C", str(repo), *args],
+                              capture_output=True, text=True).stdout
+
+    git("init", "-q")
+    git("config", "user.name", "Author A")
+    git("config", "user.email", "a@example.com")
+    (repo / "app.py").write_text("import react\n")
+    git("add", "-A")
+    git("commit", "-q", "-m", "a")
+
+    git("config", "user.name", "Author B")
+    git("config", "user.email", "b@example.com")
+    with (repo / "app.py").open("a") as f:
+        f.write("import lodash\n")
+    git("add", "-A")
+    git("commit", "-q", "-m", "b")
+
+    additions = evidence.authored_additions(repo, "author a", ("*.py",))
+    assert "import react" in additions
+    assert "import lodash" not in additions, \
+        "B's added line must not read as A's contribution"
+
+
 def test_resolve_roots_expands_given_paths():
     roots = evidence.resolve_roots(["~/lab"])
     assert len(roots) == 1 and roots[0].name == "lab"

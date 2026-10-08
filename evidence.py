@@ -104,6 +104,37 @@ def authored_files(repo: Path, suffixes=SUFFIXES, author: str = "") -> list[str]
                    and (repo / r.strip()).is_file()})
 
 
+# The skill gate is stricter than the candidate finder. A file touched in a
+# committed walk overclaims: the contribution is the diff, not the file, so
+# the gate matches the lines the author's commits added. This caps how large a
+# diff corpus a repo may contribute before matching.
+MAX_ADDED_BYTES = 4_000_000
+
+
+def authored_additions(repo: Path, author: str = "", suffixes=SUFFIXES,
+                       cap: int = MAX_ADDED_BYTES) -> str:
+    """The lines the author's commits added, joined into one corpus.
+
+    `git log --author ... -p` prints the full diff of each of the author's
+    commits, so a needle found here is a line the author actually wrote. `+`
+    hunks only, source paths only; empty when the author added nothing.
+    """
+    args = ["log", "-p", "--no-merges", "--pretty=format:"]
+    if author:
+        args[1:1] = [f"--author={author}", "-i"]
+    out = git(repo, *args, "--", *suffixes)
+    body: list[str] = []
+    total = 0
+    for raw in out.splitlines():
+        if not raw.startswith("+") or raw.startswith("+++"):
+            continue
+        total += len(raw) + 1
+        if total > cap:
+            break
+        body.append(raw[1:])
+    return "\n".join(body)
+
+
 def scan_repo(repo: Path, probes: dict, author: str = "") -> dict:
     hits = {}
     for rel in authored_files(repo, SUFFIXES, author):

@@ -193,26 +193,18 @@ def _matches(needle: str, text: str) -> bool:
     return needle in text
 
 
-def scan_evidence(names: list[str], roots=None, author: Optional[str] = None
-                  ) -> dict[str, list[str]]:
-    """Skill -> repository labels with authored usage in source files.
+def scan_evidence(names: list[str], roots=None, author: Optional[str] = None,
+                  additions: Optional[dict] = None) -> dict[str, list[str]]:
+    """Skill -> repositories whose authored diffs use the skill.
 
     Deliberately not evidence.scan: that command is a candidate finder for a
     human to read, and its broad match is the point there. A gate that decides
-    whether a CV may be built needs the narrower question, so this walks the
-    repos itself, keeps only source files, and bounds short needles by word.
-
-    Bare-word needles go through one alternation regex per file rather than a
-    check each, which is what keeps a full scan to seconds instead of minutes.
+    whether a CV may be built asks the narrower question and matches the lines
+    the operator's commits added, never a file they merely touched (ADR 0008).
     """
     probes = probe_map(names)
-    config = load_config()
-    raw_roots = config.get("roots") or None
-    roots = evidence.resolve_roots(raw_roots)
-    if author is None:
-        authors = config.get("authors") or []
-        author = ("\\|".join(authors) if authors
-                  else evidence.default_author())
+    if additions is None:
+        additions = _collect_additions(roots, author)
 
     word_map: dict[str, set[str]] = {}
     sub_map: dict[str, set[str]] = {}
@@ -226,28 +218,16 @@ def scan_evidence(names: list[str], roots=None, author: Optional[str] = None
             re.escape(w) for w in sorted(word_map, key=len, reverse=True)) + r")(?!\w)")
 
     per_skill: dict[str, set[str]] = {}
-    for repo in evidence.find_repos(roots):
-        if repo.name in SELF_REPOS:
-            continue
-        label = evidence.repo_label(repo, roots)
-        for rel in evidence.authored_files(repo, evidence.SUFFIXES, author):
-            if not _is_usage_file(rel):
-                continue
-            path = repo / rel
-            try:
-                if path.stat().st_size > evidence.MAX_BYTES:
-                    continue
-                text = path.read_text(errors="replace").lower()
-            except OSError:
-                continue
-            if word_re:
-                for hit in set(word_re.findall(text)):
-                    for name in word_map[hit]:
-                        per_skill.setdefault(name, set()).add(label)
-            for needle, owners in sub_map.items():
-                if needle in text:
-                    for name in owners:
-                        per_skill.setdefault(name, set()).add(label)
+    for label, corpus in additions.items():
+        text = corpus.lower()
+        if word_re:
+            for hit in set(word_re.findall(text)):
+                for name in word_map[hit]:
+                    per_skill.setdefault(name, set()).add(label)
+        for needle, owners in sub_map.items():
+            if needle in text:
+                for name in owners:
+                    per_skill.setdefault(name, set()).add(label)
     return {name: sorted(repos) for name, repos in per_skill.items() if repos}
 
 
@@ -344,12 +324,32 @@ def _packages_line(text: str, low: str) -> set[str]:
     return set()
 
 
-def scan_packages(roots=None, author: Optional[str] = None
-                  ) -> dict[str, list[str]]:
-    """Repo label -> packages its authored source imports.
+def _packages_text(text: str) -> set[str]:
+    """Imports across languages, for a diff corpus that mixes them."""
+    pkgs: set[str] = set()
+    for groups in _JS_IMPORT_RE.findall(text):
+        for pkg in groups:
+            base = _pkg_base(pkg)
+            if base:
+                pkgs.add(base)
+    for match in _PY_IMPORT_RE.finditer(text):
+        base = match.group(1).split(".")[0].lower()
+        if base:
+            pkgs.add(base)
+    pkgs.update(m.lower() for m in _GO_IMPORT_RE.findall(text) if m)
+    for m in _RB_IMPORT_RE.findall(text):
+        base = _pkg_base(m)
+        if base:
+            pkgs.add(base)
+    return pkgs
 
-    Shares the walk with scan_evidence, so employer repositories under every
-    configured root count the same as ~/lab (spec 0009).
+
+def _collect_additions(roots=None, author: Optional[str] = None
+                       ) -> dict[str, str]:
+    """Repo label -> the lines the author's commits added.
+
+    One diff read shared by the probe scan and the import scan, so refresh
+    does not pay the git log -p cost twice (ADR 0008).
     """
     config = load_config()
     if roots is None:
@@ -359,38 +359,45 @@ def scan_packages(roots=None, author: Optional[str] = None
         authors = config.get("authors") or []
         author = ("\\|".join(authors) if authors
                   else evidence.default_author())
-
-    per_repo: dict[str, set[str]] = {}
+    out: dict[str, str] = {}
+    usage_globs = tuple(f"*{ext}" for ext in USAGE_EXTS)
     for repo in evidence.find_repos(roots):
         if repo.name in SELF_REPOS:
             continue
-        label = evidence.repo_label(repo, roots)
-        for rel in evidence.authored_files(repo, evidence.SUFFIXES, author):
-            if not _is_usage_file(rel):
-                continue
-            path = repo / rel
-            try:
-                if path.stat().st_size > evidence.MAX_BYTES:
-                    continue
-                text = path.read_text(errors="replace")
-            except OSError:
-                continue
-            for pkg in _packages_line(text, rel.lower()):
-                per_repo.setdefault(label, set()).add(pkg)
-    return {label: sorted(pkgs) for label, pkgs in per_repo.items() if pkgs}
+        corpus = evidence.authored_additions(repo, author, usage_globs)
+        if corpus:
+            out[evidence.repo_label(repo, roots)] = corpus
+    return out
+
+
+def scan_packages(roots=None, author: Optional[str] = None,
+                  additions: Optional[dict] = None
+                  ) -> dict[str, list[str]]:
+    """Repo label -> packages its authored diff lines import.
+
+    Shares the diff walk with scan_evidence, so employer repositories under
+    every configured root count the same as ~/lab (spec 0009).
+    """
+    if additions is None:
+        additions = _collect_additions(roots, author)
+    return {label: sorted(_packages_text(corpus))
+            for label, corpus in sorted(additions.items())
+            if _packages_text(corpus)}
 
 
 def import_evidence(config: Optional[dict] = None, roots=None,
                     author: Optional[str] = None,
-                    per_repo: Optional[dict] = None) -> dict[str, list[str]]:
-    """Skill -> repos whose authored source imports one of its packages.
+                    per_repo: Optional[dict] = None,
+                    additions: Optional[dict] = None
+                    ) -> dict[str, list[str]]:
+    """Skill -> repos whose authored diff imports one of its packages.
 
     The mapping in skills.json is the reviewable artifact: a package binds its
     skill, and nothing becomes a skill without a mapping or an approval.
     """
     config = config if config is not None else load_config()
     if per_repo is None:
-        per_repo = scan_packages(roots, author)
+        per_repo = scan_packages(roots, author, additions)
     pkg_to_skill: dict[str, str] = {}
     for skill, pkgs in config.get("mapping", {}).items():
         for pkg in pkgs:
@@ -413,8 +420,10 @@ def build(names: Optional[list[str]] = None, roots=None,
     config = load_config()
     claimed = claimed_tags()
     names = names if names is not None else skill_names(config, claimed)
-    evidence_map = scan_evidence(names, roots, author)
-    for skill, repos in import_evidence(config, roots, author).items():
+    additions = _collect_additions(roots, author)
+    evidence_map = scan_evidence(names, roots, author, additions)
+    for skill, repos in import_evidence(config, roots, author,
+                                        additions=additions).items():
         evidence_map.setdefault(skill, set())
         combined = set(evidence_map[skill])
         combined.update(repos)
