@@ -53,48 +53,66 @@ going to parse it.
    other alternatives of an "ou" list, and never report the unmatched words
    as a gap. A keyword score that misses them is a measurement artifact, not
    a missing requirement.
-7. **Never invent data.** Summary, bullets, figures and tags come from the
+7. **A build is done only when its fit reads honestly and its debrief is
+   written.** "The PDF exists" is not done, and neither is "the gates pass".
+   A fit score that still carries noise, or two tools that disagree on the
+   same posting, means the measurement is unfinished and the generation is
+   not done. A run that ends without a cv-debrief record of what it surfaced
+   repeats the finding next time. The two checks are the completion gate, not
+   suggestions.
+8. **Never invent data.** Summary, bullets, figures and tags come from the
    JSON. If a claim is not reproducible from a repository, it does not go on
    the CV, whatever the posting asked for.
 
 ## Method
 
-1. **Confirm the base data is current.** The text you render is whatever
-   `cv.json` (English) and `cv-pt.json` (Portuguese) hold today. Do not edit a
-   rendered file.
-2. **Run the gate.**
+The flow is six steps, each backed by the CLI. Only the middle four need the
+posting; the gate and the render frame them.
+
+1. **Read the JD.**
    ```bash
-   cv gaps check
+   cv tailor <slug>               # what this posting asks, and what is open
    ```
-   Any CV that claims an unproven skill is reported; fix the tag, the
-   evidence, or the claim before rendering.
-3. **For a posting, tailor first.**
+   The JD lives at `companies/<slug>/description.md`. Read it as facts, not
+   vibes: the requirements, the level (`pleno`, `sênior`), the "ou" lists.
+2. **Extract the JD's keywords.**
    ```bash
-   cv inbox next          # the oldest capture that still needs a CV
-   cv tailor <slug>       # the questions this posting asks
+   cv fit <slug>                  # the posting's terms, pre-filter
    ```
-   Read what the JD asks for, then compare the posting's seniority with how
-   the CV frames you: if the JD wants `Pleno` and the CV leads with a founder
-   or lead title, ask which frame this posting uses before writing the
-   tailored JSON. Write the tailored JSON under `companies/<slug>/`.
-4. **Generate.**
+   Every content token the JD actually uses, before any opinion is applied.
+3. **Filter out non-skill words.**
    ```bash
-   cv generate --pdf --lang en                # base English resume
-   cv generate --pdf --lang pt                # base Portuguese resume
-   cv generate --company <slug> --lang pt --pdf   # a posting's tailored CV
+   cv fit <slug>                  # the same command reports the kept set
    ```
-   Thematic and margin choices are `--theme` and `PAGE_MARGIN`; they change
-   the look, never the content.
-5. **Verify, then decide.**
+   URL lines, Portuguese function words, level and location words and
+   accent-split fragments leave the keyword set; what remains is the posting's
+   real skill and tech vocabulary.
+4. **Match the kept set against the curated skills.**
    ```bash
-   cv ats-check --pdf <pdf> --strict
+   cv fit <slug>                  # matched and unmatched, per curated CV tag
    ```
-   Green gates and a qualifying score mean done. When a gate fails, read
-   which one: a missed field like a course or a tag is a content problem in
-   the JSON, and a reading-order break after a role is a section problem. Fix
-   the source, regenerate, and re-check until the one command passes.
-6. **Iterate on the data, never on the renderer.** A strict floor under the
-   target is earned with content, not by toggling checks.
+   Compare the keep list to this CV's skill tags. An "ou" list is one
+   requirement: matched the moment any alternative is evidenced. A seniority
+   frame conflict surfaces here and stops for your decision.
+5. **Check the evidence.**
+   ```bash
+   cv gaps check                  # nothing a CV claims stays unproven
+   ```
+   Every tag the CV will carry is evidenced, soft, or allowed. An unmatched
+   alternative is never a reason to add a claim; it is either covered by
+   evidence or a real absence to record.
+6. **Write the CV.**
+   ```bash
+   cv generate --company <slug> --lang pt --pdf
+   cv ats-check --company <slug> --lang pt --strict
+   ```
+   Generate, then the strict check decides done: gates green and the score at
+   the floor. A score under the floor is content to iterate, never a renderer
+   to force.
+
+`cv fit <slug>` backs steps 2, 3 and 4 in one pass, so the posting's terms,
+the filtered keep set, and the curated match are always the same numbers,
+never three tools drifting apart.
 
 ## The gate
 
