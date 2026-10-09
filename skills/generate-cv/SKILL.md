@@ -46,7 +46,14 @@ going to parse it.
    contributor. Founder and org-leading words leave the title, the summary,
    and the role line, while the org itself stays in the experience section
    unchanged.
-6. **Never invent data.** Summary, bullets, figures and tags come from the
+6. **A requirement phrased with "ou" is one requirement.** Read the JD's list
+   literally: "fintech, bancos, meios de pagamento ou sistemas financeiros"
+   is satisfied the moment any one of them is evidenced. Stripe evidence is
+   payments evidence. Never add a project, a bullet, or a tag to close the
+   other alternatives of an "ou" list, and never report the unmatched words
+   as a gap. A keyword score that misses them is a measurement artifact, not
+   a missing requirement.
+7. **Never invent data.** Summary, bullets, figures and tags come from the
    JSON. If a claim is not reproducible from a repository, it does not go on
    the CV, whatever the posting asked for.
 
@@ -104,6 +111,7 @@ Pass 2, the build holding together:
 [ ] no ATS gate flags a reading-order break or a missing field
 [ ] the sender's name matches the personal data, not the file's old name
 [ ] the posting's seniority and the CV framing agree, or the operator chose the frame
+[ ] no "ou" requirement is reported as a gap when one of its alternatives is evidenced
 ```
 
 ## The output template
