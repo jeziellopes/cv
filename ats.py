@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import unicodedata
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -103,7 +104,36 @@ JD_STOPWORDS = STOPWORDS | set(
     improving drive drives driving help helps helping create creates creating
     across within using use used plus etc including include includes
     """.split()
+) | set(
+    """
+    ou para com sem sob sobre sua suas seu seus nossa nosso nossas nossos você
+    vocês estamos estão está está buscando busca buscar buscamos buscam
+    contratando contratamos procuramos candidato candidata candidatos candidatas
+    candidatar profissional profissionais vaga vagas integrar integração gosto
+    gosta gostamos goste interessado interessada interesse interesses precisa
+    precisamos precisar deve devem pode podem ter temos trabalhar trabalhamos
+    trabalhará atuar atuando responsável responsáveis desenvolvimento desenvolver
+    desenvolvedor desenvolvedora desenvolvedores desenvolvedoras equipe times
+    desafios desafio oferecemos oferecer fazer vamos vai dia dias time
+    conhecendo conhecemos pessoa pessoas são sao paulo pleno frontend backend
+    de em da das do dos uma um uma uma vivência vivências também ainda mesmo
+    mesma através entre dentro fora além muito muita todo toda todos todas ser
+    sendo foi seja dentro partir assim bem menos mais já hoje coisa coisas
+    """.split()
 )
+
+
+def _fold_accent(text: str) -> str:
+    """Strip diacritics so 'vivência' matches 'vivencia' and never splits."""
+    return "".join(
+        c for c in unicodedata.normalize("NFKD", text or "")
+        if unicodedata.category(c) != "Mn"
+    )
+
+
+# Membership is decided on the folded form: the raw list carries accented
+# spellings ("vivência"), the folded JD tokens never do.
+_JD_STOP = frozenset(_fold_accent(w) for w in JD_STOPWORDS)
 
 
 def _looks_like_domain(token: str) -> bool:
@@ -669,12 +699,18 @@ def score_leadership(cv: Optional[dict]) -> Check:
 # ---- tailoring ----------------------------------------------
 
 def jd_keywords(text: str) -> list[str]:
-    tokens = WORD_RE.findall(text or "")
+    # The JD file's own header carries URLs; their tokens ("vagas", "source",
+    # a company slug) are not keywords and must not tax the coverage score.
+    text = "\n".join(
+        line for line in (text or "").splitlines()
+        if not re.match(r"^\s*(?:apply[: ]*)?https?://", line.strip())
+    )
+    tokens = WORD_RE.findall(_fold_accent(text or ""))
     out: list[str] = []
     seen: set[str] = set()
     for token in tokens:
-        low = token.lower().strip(".-/")
-        if len(low) < 2 or low in JD_STOPWORDS or low in seen:
+        low = _fold_accent(token.lower()).strip(".-/")
+        if len(low) < 2 or low in _JD_STOP or low in seen:
             continue
         if any(ch.isdigit() for ch in low) or _looks_like_domain(low):
             continue
@@ -684,7 +720,7 @@ def jd_keywords(text: str) -> list[str]:
 
 
 def score_tailoring(text: str, jd_text: str) -> tuple[Check, list[str]]:
-    body = norm(text).lower()
+    body = _fold_accent(norm(text).lower())
     keywords = jd_keywords(jd_text)
     if not keywords:
         return Check("tailoring.keywords", "Tailoring", "Keyword coverage", 100, "empty JD"), []

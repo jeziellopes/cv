@@ -162,6 +162,36 @@ def test_tailoring_coverage_scales_down_for_missing_keywords():
     assert missing == ["docker"]
 
 
+def test_jd_keywords_do_not_read_the_url_header_as_keywords():
+    jd = (
+        "Desenvolvedor(a) Full Stack Pleno - São Paulo\nSTTART PAY\n\n"
+        "https://www.linkedin.com/jobs/view/4471964889/\n"
+        "apply: https://sttartpay.inhire.app/vagas/cf7c725a?source=linkedin\n\n"
+        "Buscamos pessoa desenvolvedora com TypeScript e Node.js, "
+        "vivência em meios de pagamento."
+    )
+    keywords = ats.jd_keywords(jd)
+    for noise in ("vagas", "source", "linkedin", "inhire", "apply", "busca",
+                  "buscamos", "ou", "são", "pleno"):
+        assert noise not in keywords, f"{noise!r} is a JD header/function word"
+    assert "typescript" in keywords
+    assert "node.js" in keywords
+
+
+def test_tailoring_coverage_ignores_url_and_function_word_noise():
+    text = "TypeScript, Node.js e meios de pagamento com Stripe."
+    jd = (
+        "https://www.linkedin.com/jobs/view/4471964889/\n\n"
+        "Precisamos de uma pessoa com TypeScript, Node.js e vivência em "
+        "meios de pagamento."
+    )
+    check, missing = ats.score_tailoring(text, jd)
+    assert check.score == 100
+    assert missing == []
+    for noise in ("precisamos", "pessoa", "vivência", "uma", "com"):
+        assert noise not in ats.jd_keywords(jd), noise
+
+
 def test_scorecard_is_deterministic_and_json_stable(good_pdf, mock_extraction):
     report_one = ats.run_checks(good_pdf, cv=GOOD_CV)
     report_two = ats.run_checks(good_pdf, cv=GOOD_CV)
