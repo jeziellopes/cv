@@ -42,7 +42,10 @@ going to parse it.
    experience section leads with), and when they disagree, ask the operator
    which frame this posting gets before any generate. A founder framing aimed
    at a Pleno role is not an error the moment it is written; it is an open
-   question.
+   question. For a Pleno posting the standing frame is: hands-on senior
+   contributor. Founder and org-leading words leave the title, the summary,
+   and the role line, while the org itself stays in the experience section
+   unchanged.
 6. **Never invent data.** Summary, bullets, figures and tags come from the
    JSON. If a claim is not reproducible from a repository, it does not go on
    the CV, whatever the posting asked for.
