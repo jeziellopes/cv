@@ -382,6 +382,9 @@ def test_fit_report_matches_the_kept_set_against_curated_tags(tmp_path, monkeypa
     assert "Stripe" in report["matched"]
     assert "TypeScript" in report["matched"]
     assert "React" in report["unmatched"]
+    assert "node.js" in [u["term"] for u in report["uncovered"]]
+    for u in report["uncovered"]:
+        assert u["status"] in {"soft", "allowed", "evidenced", "needs an answer"}
 
 
 def test_fit_report_is_none_for_an_unknown_slug(tmp_path, monkeypatch):

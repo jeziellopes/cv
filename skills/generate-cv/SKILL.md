@@ -60,7 +60,15 @@ going to parse it.
    not done. A run that ends without a cv-debrief record of what it surfaced
    repeats the finding next time. The two checks are the completion gate, not
    suggestions.
-8. **Never invent data.** Summary, bullets, figures and tags come from the
+8. **Every demanded term the CV does not cover routes to the evidence ledger.
+   This is the core operation of the flow.** `cv fit` lists each term the
+   posting demands that the CV has not claimed, with its status. Soft names
+   claim without proof; allowed names claim with the recorded reason;
+   evidenced names claim after `cv gaps refresh`; anything else is a question
+   for the operator (`cv gaps answer`), never a silent drop and never a
+   padding of the score. The flow converts a missing list into evidence
+   work, and coverage is gained by resolving evidence.
+9. **Never invent data.** Summary, bullets, figures and tags come from the
    JSON. If a claim is not reproducible from a repository, it does not go on
    the CV, whatever the posting asked for.
 
@@ -105,7 +113,8 @@ posting; the gate and the render frame them.
    ```bash
    cv generate --company <slug> --lang pt --pdf
    cv ats-check --company <slug> --lang pt --strict
-   cv inbox score <slug>             # the fit must read honestly before done
+   cv inbox score <slug>             # the base fit must read honestly before done
+   cv fit <slug> --lang pt           # the tailored claims must match the ledger
    ```
    Generate, then the strict check decides done: gates green and the score at
    the floor. `cv inbox score <slug>` is the honest-fit check: when its terms

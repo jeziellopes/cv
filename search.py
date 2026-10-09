@@ -19,7 +19,7 @@ import html as _html
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ats import JD_STOPWORDS, _fold_accent, _looks_like_domain
+from ats import JD_STOPWORDS, _JD_STOP, _fold_accent, _looks_like_domain
 
 # Title overlap uses a small, dedicated stop set, never the full JD stop list:
 # "full" and "stack" are functiony words to a JD tokenizer but are exactly the
@@ -457,6 +457,7 @@ def _jd_terms(text: str, skill_vocab: set[str]) -> list[str]:
             if not re.match(r"^\s*(?:apply[: ]*)?https?://", line.strip())
         )))
     out: list[str] = []
+    slashed: list[str] = []
     seen: set[str] = set()
     for m in re.finditer(r"[A-Za-z][A-Za-z0-9+#./-]*", text or ""):
         raw = m.group(0).rstrip(".")
@@ -465,9 +466,24 @@ def _jd_terms(text: str, skill_vocab: set[str]) -> list[str]:
             continue
         if any(ch.isdigit() for ch in low) or _looks_like_domain(low):
             continue
-        if raw[0].isupper() or "/" in raw or "." in raw or "+" in raw or "#" in raw or low in skill_vocab:
+        if raw[0].isupper() or "." in raw or "+" in raw or "#" in raw or low in skill_vocab:
+            if "/" in raw:
+                # A slash-joined term ("ux/ui") splits in the CV's own tokenizer,
+                # so it is kept by its parts, never by the joined form.
+                slashed.append(raw)
+                continue
             seen.add(low)
             out.append(low)
+    # Emit the parts honorably stopworded, so "ux/ui" meets "UX Principles".
+    for raw in slashed:
+        for part in raw.split("/"):
+            p = _fold(part.strip()).lower()
+            if len(p) < 2 or p in seen or p in _JD_STOP or _is_generic(p):
+                continue
+            if any(ch.isdigit() for ch in p) or _looks_like_domain(p):
+                continue
+            seen.add(p)
+            out.append(p)
     return out
 
 
@@ -479,6 +495,17 @@ def _overlap_tokens(text: str) -> set[str]:
         if "-" in token:
             out.update(token.split("-"))
     return out
+
+
+def _jd_terms_for(job: "Job", skill_vocab: set[str]) -> list[str]:
+    """Distinctive JD terms, minus the posting's own company name."""
+    terms = _jd_terms(job.description, skill_vocab)
+    company = str(job.company or "")
+    stops = {t for t in _tokens(company) if len(t) >= 2}
+    compact = _fold_accent(company.lower().replace(" ", "").strip())
+    if compact:
+        stops.add(compact)
+    return [k for k in terms if k not in stops]
 
 
 def _cv_text(cv: dict) -> str:
@@ -510,7 +537,7 @@ def rank(jobs: list[Job], cv: dict, query: str = "") -> list[Ranked]:
 
     ranked = []
     for job in jobs:
-        keywords = _jd_terms(job.description, skill_vocab)
+        keywords = _jd_terms_for(job, skill_vocab)
         jd_coverage = (
             sum(1 for k in keywords if k in cv_tokens) / len(keywords)
             if keywords
@@ -560,7 +587,7 @@ def explain(job: Job, cv: dict) -> dict:
     skill_vocab = {t.lower() for t in skill_tags} | {
         token for t in skill_tags for token in _tokens(t)}
 
-    keywords = _jd_terms(job.description, skill_vocab)
+    keywords = _jd_terms_for(job, skill_vocab)
     jd_hits = [k for k in keywords if k in cv_tokens]
     jd_misses = [k for k in keywords if k not in cv_tokens]
 

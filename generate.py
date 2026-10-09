@@ -760,6 +760,14 @@ def fit_command(
     for tag in unmatched:
         typer.echo(f"      miss  {tag}")
 
+    uncovered = report.get("uncovered", [])
+    if uncovered:
+        typer.echo(f"\n  demanded, not yet covered ({len(uncovered)}):")
+        for item in uncovered:
+            typer.echo(f"      {item['term']:24} {item['status']}")
+        typer.echo("  resolve: soft or evidenced terms are claimable as cv tags; "
+                   "else cv gaps answer <term>")
+
 
 @app.command()
 def status() -> None:

@@ -1115,6 +1115,17 @@ def fit_report(slug: str, lang: str = "en",
         return {"error": "empty JD"}
     kept, total = ats.jd_keyword_stats(body)
 
+    # The posting's own company name is not a skill term; whatever the JD
+    # prose calls the company must not survive the kept set (spec 0012).
+    company_stops = {t for t in re.findall(
+        r"[a-z0-9+#.-]+", ats._fold_accent(str(entry.get("company", "")).lower()))
+        if len(t) >= 2}
+    compact = ats._fold_accent(str(entry.get("company", "")).lower()
+                               ).replace(" ", "").strip()
+    if compact:
+        company_stops.add(compact)
+    kept = [k for k in kept if k not in company_stops]
+
     cv_path = base_dir / "companies" / slug / f"cv-{lang}.json"
     if not cv_path.is_file():
         cv_path = base_dir / ("cv.json" if lang == "en" else f"cv-{lang}.json")
@@ -1137,6 +1148,14 @@ def fit_report(slug: str, lang: str = "en",
             matched.append(tag)
         else:
             unmatched.append(tag)
+
+    covered = set()
+    for tag in matched:
+        covered |= {t for t in re.findall(r"[a-z0-9+#.-]+",
+                                          ats._fold_accent(tag.lower()))
+                    if len(t) >= 2}
+    uncovered = [{"term": term, "status": _term_status(term)}
+                 for term in sorted(kept_set - covered)]
     return {
         "slug": slug,
         "lang": lang,
@@ -1144,7 +1163,32 @@ def fit_report(slug: str, lang: str = "en",
         "kept": sorted(kept),
         "matched": sorted(matched),
         "unmatched": sorted(unmatched),
+        "uncovered": uncovered,
     }
+
+
+def _term_status(term: str) -> str:
+    """How a demanded term stands in the evidence ledger.
+
+    The evidence-focused missing loop (generate-cv core operation): a term the
+    CV does not cover is soft, allowed, evidenced, or needs the operator's
+    answer. Unknown is a question to ask, never a silent drop.
+    """
+    try:
+        import skills
+    except ImportError:
+        return "needs an answer"
+    config = skills.load_config()
+    key = skills.normalize(term)
+    if key in skills.soft_set(config):
+        return "soft"
+    if key in skills.allowed_map(config):
+        return "allowed"
+    ledger = skills.load_gaps()
+    evidence = {skills.normalize(k) for k in ledger.get("evidence", {})}
+    if key in evidence:
+        return "evidenced"
+    return "needs an answer"
 
 
 def triaged_entries() -> list[dict]:
