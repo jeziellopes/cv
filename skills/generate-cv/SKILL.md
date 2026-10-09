@@ -105,9 +105,12 @@ posting; the gate and the render frame them.
    ```bash
    cv generate --company <slug> --lang pt --pdf
    cv ats-check --company <slug> --lang pt --strict
+   cv inbox score <slug>             # the fit must read honestly before done
    ```
    Generate, then the strict check decides done: gates green and the score at
-   the floor. A score under the floor is content to iterate, never a renderer
+   the floor. `cv inbox score <slug>` is the honest-fit check: when its terms
+   still carry noise, or two tools disagree on the same posting, the build is
+   not done. A score under the floor is content to iterate, never a renderer
    to force.
 
 `cv fit <slug>` backs steps 2, 3 and 4 in one pass, so the posting's terms,
