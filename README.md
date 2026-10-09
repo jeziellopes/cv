@@ -134,7 +134,7 @@ cv search ...                                   # see Job search below
 |---|---|---|
 | `--company / -c` | - | Company ID, reads and writes under `companies/{id}/` |
 | `--lang / -l` | `en` | Language code (`en`, `pt`) |
-| `--theme / -t` | `classic` | Theme: `classic`, `modern`, `minimal` |
+| `--theme / -t` | `orange` | Theme: `orange`, `classic`, `modern`, `minimal` |
 | `--pdf` | off | Export PDF after rendering HTML |
 
 ## ATS checking
@@ -246,7 +246,8 @@ applied, is reported rather than dropped.
 
 | Theme | Font | Accent |
 |---|---|---|
-| `classic` *(default)* | Volkhov + PT Sans | Black |
+| `orange` *(default)* | Geist | Orange `#ff4c00` |
+| `classic` | Volkhov + PT Sans | Black |
 | `modern` | Inter | Blue `#2563eb` on name, titles & dots |
 | `minimal` | IBM Plex Sans | Dark grey, uppercase section labels, light borders |
 

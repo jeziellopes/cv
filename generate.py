@@ -9,7 +9,7 @@
 #   cv generate --lang pt --theme modern --pdf
 #   cv new acme                                  → scaffold companies/acme/cv-en.json
 #
-# Available themes: classic (default), modern, minimal
+# Available themes: orange (default), classic, modern, minimal
 # Available languages: en (default), pt
 # ============================================================
 
@@ -269,6 +269,9 @@ body {{
 @page {{ size: A4; margin: {PAGE_MARGIN}px; }}
 """
 
+# ---- themes -------------------------------------------------
+
+DEFAULT_THEME = "orange"
 THEMES = {
     # ── Classic ─────────────────────────────────────────────
     # Exact port of the original JS design: Volkhov serif headings,
@@ -340,6 +343,36 @@ THEMES = {
 .header-name    { font-weight: 600; letter-spacing: 0.08em; }
 .item-org       { font-size: 15px; }
 .dot-empty      { background: #e0e0e0; }
+""",
+    },
+
+    # ── Orange ───────────────────────────────────────────────
+    # Ported from the operator's portfolio site: Geist font pair, neutral
+    # greys and one orange accent used sparingly. Accent lands on the large
+    # name, the section rule and the language dots; any small accent text
+    # uses the darker #c93a00 so it clears 4.5:1, like the site's --link.
+    "orange": {
+        "fonts_url": (
+            "https://fonts.googleapis.com/css2?"
+            "family=Geist:wght@400;500;600;700"
+            "&family=Geist+Mono:wght@400;500&display=swap"
+        ),
+        "css_vars": f"""
+:root {{
+  --font-heading: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-body:    'Geist', ui-sans-serif, system-ui, sans-serif;
+  --color-text:   #212122;
+  --color-muted:  #5f5f61;
+  --color-border: #e7e7e8;
+  --color-accent: #ff4c00;
+  --page-margin:  {PAGE_MARGIN}px;
+}}""",
+        "extra_css": """
+/* Orange: neutral greys, orange reserved for the name, the rule and dots */
+.header-name    { color: #ff4c00; letter-spacing: 0.04em; }
+.section-title  { border-bottom-color: #ff4c00; }
+.dot-filled     { background: #ff4c00; }
+.header-title   { color: #5f5f61; }
 """,
     },
 }
@@ -572,7 +605,7 @@ def resolve_browsers_path():
 def generate(
     company: Annotated[Optional[str], typer.Option("--company", "-c", help="Company ID (reads companies/{id}/cv-{lang}.json, writes companies/{id}/<CandidateName>-{lang}.pdf)")] = None,
     lang: Annotated[str, typer.Option("--lang", "-l", help="Language code (en, pt)")] = "en",
-    theme: Annotated[str, typer.Option("--theme", "-t", help="Theme: classic, modern, minimal")] = "classic",
+    theme: Annotated[str, typer.Option("--theme", "-t", help="Theme: classic, modern, minimal, orange")] = DEFAULT_THEME,
     pdf: Annotated[bool, typer.Option("--pdf", help="Export PDF after rendering HTML")] = False,
 ):
     """Render cv.json to index.html and optionally export a PDF."""
@@ -847,7 +880,7 @@ def stale(
     for s in found:
         company = None if s.cv_path.parent == BASE_DIR else s.label
         typer.echo(f"  rebuilding {s.label} ({s.lang})")
-        generate(company=company, lang=s.lang, theme="classic", pdf=True)
+        generate(company=company, lang=s.lang, theme=DEFAULT_THEME, pdf=True)
     typer.echo(f"rebuilt {len(found)}.")
 
 
