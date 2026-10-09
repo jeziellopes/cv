@@ -1096,6 +1096,57 @@ def _stored_payload(slug: str, base_dir: Optional[Path] = None) -> Optional[dict
     }
 
 
+def fit_report(slug: str, lang: str = "en",
+               base_dir: Optional[Path] = None) -> Optional[dict]:
+    """The curated match for a capture: JD tokens, kept set, tag hits.
+
+    Backs `cv fit` (steps 2, 3 and 4 of the generate flow). The keyword side
+    is the same filter ats uses, so the coverage number and this report agree
+    (spec 0012). None means an unknown slug; an error key names the miss.
+    """
+    import ats
+
+    base_dir = base_dir or BASE_DIR
+    entry = find_entry(slug)
+    if not entry:
+        return None
+    body = _capture_body(entry, base_dir)
+    if not body.strip():
+        return {"error": "empty JD"}
+    kept, total = ats.jd_keyword_stats(body)
+
+    cv_path = base_dir / "companies" / slug / f"cv-{lang}.json"
+    if not cv_path.is_file():
+        cv_path = base_dir / ("cv.json" if lang == "en" else f"cv-{lang}.json")
+    if not cv_path.is_file():
+        return {"error": "no cv to match"}
+    try:
+        cv = json.loads(cv_path.read_text(encoding="utf-8"))
+    except ValueError:
+        return {"error": f"invalid cv json: {cv_path.name}"}
+    tags = [tag for group in cv.get("skills", []) for tag in group.get("tags", [])]
+
+    kept_set = set(kept)
+    matched: list[str] = []
+    unmatched: list[str] = []
+    for tag in tags:
+        toks = {t for t in re.findall(r"[a-z0-9+#.-]+",
+                                      ats._fold_accent(tag.lower()))
+                if len(t) >= 2}
+        if toks and toks <= kept_set:
+            matched.append(tag)
+        else:
+            unmatched.append(tag)
+    return {
+        "slug": slug,
+        "lang": lang,
+        "total_tokens": total,
+        "kept": sorted(kept),
+        "matched": sorted(matched),
+        "unmatched": sorted(unmatched),
+    }
+
+
 def triaged_entries() -> list[dict]:
     """Every capture that went to triage, with its recorded match."""
     return [e for e in load_ledger()
@@ -1199,6 +1250,19 @@ def triage_add(slug: str) -> None:
     else:
         typer.echo(f"No JD at companies/{slug}/description.md", err=True)
         raise typer.Exit(code=1)
+
+
+def jd_body(path: Path) -> str:
+    """The JD body of a capture file, without its header lines.
+
+    The header holds the title, company, location and URLs, which are metadata,
+    not JD content: scoring must read the body so the header can never tax the
+    coverage (spec 0012).
+    """
+    try:
+        return _jd_parts(path.read_text(encoding="utf-8"))[1]
+    except OSError:
+        return ""
 
 
 def find_entry(slug: str) -> Optional[dict]:

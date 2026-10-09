@@ -709,7 +709,7 @@ def _ats_check_every(lang: str) -> None:
             rows.append((_company_label(cv_path), None, False, "bad JSON"))
             continue
         jd = folder / "description.md"
-        jd_text = jd.read_text(encoding="utf-8") if jd.exists() else ""
+        jd_text = inbox.jd_body(jd) if jd.exists() else ""
         report = ats.run_checks(pdfs[0], cv=cv, jd_text=jd_text)
         rows.append((_company_label(cv_path), report.overall,
                      report.gates_passed, ""))
@@ -731,6 +731,34 @@ def _ats_check_every(lang: str) -> None:
     if failed:
         typer.echo(f"✖ {len(failed)} not passing gates.", err=True)
         raise typer.Exit(1)
+
+
+@app.command("fit")
+def fit_command(
+    slug: Annotated[str, typer.Argument(help="capture slug")],
+    lang: Annotated[str, typer.Option("--lang", "-l",
+                                      help="curated CV language to match")] = "en",
+) -> None:
+    """The curated match: read the JD, keep its keywords, match the skills."""
+    report = inbox.fit_report(slug, lang)
+    if report is None:
+        typer.echo(f"No capture {slug}.", err=True)
+        raise typer.Exit(1)
+    if "error" in report:
+        typer.echo(f"{report['error']}.", err=True)
+        raise typer.Exit(1)
+    total, kept = report["total_tokens"], report["kept"]
+    filtered = total - len(kept)
+    typer.echo(f"{slug}: {total} JD tokens, {len(kept)} kept "
+               f"({filtered} filtered out)")
+    typer.echo(f"  kept: {', '.join(kept) if kept else '(none)'}")
+    matched, unmatched = report["matched"], report["unmatched"]
+    typer.echo(f"\n  curated skills ({report['lang']}): "
+               f"{len(matched)}/{len(matched) + len(unmatched)} matched")
+    for tag in matched:
+        typer.echo(f"      hit   {tag}")
+    for tag in unmatched:
+        typer.echo(f"      miss  {tag}")
 
 
 @app.command()
@@ -913,7 +941,7 @@ def ats_check(
     elif company:
         auto = BASE_DIR / "companies" / company / "description.md"
         if auto.exists():
-            jd_text = auto.read_text(encoding="utf-8")
+            jd_text = inbox.jd_body(auto)
 
     report = ats.run_checks(pdf_path, cv=cv, jd_text=jd_text)
 

@@ -109,7 +109,7 @@ def test_classify_sends_an_asked_demanded_skill_to_the_operator():
         "demand": {"DynamoDB": ["acme"], "React": ["acme"]},
     }
     config = {"soft": ["Scrum"]}
-    parts = skills.classify(ledger, config)
+    parts = skills.classify(ledger, config, confirmations={})
     # Demand + no evidence + no answer is a question for the operator (ADR 0007),
     # not yet a gap.
     assert "DynamoDB" in parts["needs_answer"]

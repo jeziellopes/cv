@@ -19,7 +19,17 @@ import html as _html
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ats import JD_STOPWORDS, _looks_like_domain
+from ats import JD_STOPWORDS, _fold_accent, _looks_like_domain
+
+# Title overlap uses a small, dedicated stop set, never the full JD stop list:
+# "full" and "stack" are functiony words to a JD tokenizer but are exactly the
+# meaningful overlap of a developer title, so a title scorer needs its own.
+_TITLE_STOP = {
+    "a", "de", "da", "do", "das", "dos", "em", "para", "com", "ou", "e",
+    "um", "uma", "o", "s", "pleno", "senior", "sênior", "junior", "júnior",
+    "estagio", "estágio", "sao", "paulo", "sp", "remoto", "remota",
+    "hibrido", "híbrido", "presencial", "desenvolvedor", "desenvolvedora",
+}
 
 # Common function words dropped from a free-text query, EN and PT. Role and
 # domain words are kept: for a query, "full stack" is the signal, not noise.
@@ -416,7 +426,10 @@ def from_file(path: Path) -> list[Job]:
 # ---- ranking ----------------------------------------------
 
 def _tokens(text: str) -> set[str]:
-    return {t.lower() for t in re.findall(r"[A-Za-z][A-Za-z0-9+#.-]*", text or "")}
+    # Fold diacritics before splitting, so "vivência" is one token and never
+    # the viv/ncia fragments that destroyed JD matching for Portuguese text.
+    return {t.lower() for t in re.findall(
+        r"[A-Za-z][A-Za-z0-9+#.-]*", _fold_accent(text or ""))}
 
 
 def _fold(text: str) -> str:
@@ -433,7 +446,16 @@ def _is_generic(token: str) -> bool:
 def _jd_terms(text: str, skill_vocab: set[str]) -> list[str]:
     """Distinctive terms in a JD: tokens that are capitalized, carry tech
     punctuation (node.js, ci/cd, es6+), or name a CV skill. Generic prose is
-    ignored, so coverage reflects real tech overlap, not description length."""
+    ignored, so coverage reflects real tech overlap, not description length.
+
+    URL lines from a captured JD's own header are not content: their slugs
+    ("vagas", a company name) must never read as missing terms.
+    """
+    if text:
+        text = re.sub(r"https?://\S+", " ", _fold_accent("\n".join(
+            line for line in text.splitlines()
+            if not re.match(r"^\s*(?:apply[: ]*)?https?://", line.strip())
+        )))
     out: list[str] = []
     seen: set[str] = set()
     for m in re.finditer(r"[A-Za-z][A-Za-z0-9+#./-]*", text or ""):
@@ -477,7 +499,9 @@ def rank(jobs: list[Job], cv: dict, query: str = "") -> list[Ranked]:
     """
     cv_body = _cv_text(cv).lower()
     cv_tokens = _tokens(cv_body)
-    title_tokens = _overlap_tokens(cv.get("personal", {}).get("title", ""))
+    title_tokens = {t for t in _overlap_tokens(
+        cv.get("personal", {}).get("title", ""))
+        if len(t) >= 2 and t not in _TITLE_STOP}
     skill_tags = [t for g in cv.get("skills", []) for t in g.get("tags", [])]
     skill_vocab = {t.lower() for t in skill_tags} | {
         token for t in skill_tags for token in _tokens(t)
@@ -498,7 +522,8 @@ def rank(jobs: list[Job], cv: dict, query: str = "") -> list[Ranked]:
             if skill_tags
             else 0.0
         )
-        job_tokens = _overlap_tokens(job.title)
+        job_tokens = {t for t in _overlap_tokens(job.title)
+                      if len(t) >= 2 and t not in _TITLE_STOP}
         title_overlap = (
             len(job_tokens & title_tokens) / len(job_tokens)
             if job_tokens
@@ -528,7 +553,9 @@ def explain(job: Job, cv: dict) -> dict:
     """
     cv_body = _cv_text(cv).lower()
     cv_tokens = _tokens(cv_body)
-    title_tokens = _overlap_tokens(cv.get("personal", {}).get("title", ""))
+    title_tokens = {t for t in _overlap_tokens(
+        cv.get("personal", {}).get("title", ""))
+        if len(t) >= 2 and t not in _TITLE_STOP}
     skill_tags = [t for g in cv.get("skills", []) for t in g.get("tags", [])]
     skill_vocab = {t.lower() for t in skill_tags} | {
         token for t in skill_tags for token in _tokens(t)}
@@ -540,7 +567,8 @@ def explain(job: Job, cv: dict) -> dict:
     body = (job.title + " " + job.description).lower()
     matched = [t for t in skill_tags if t.lower() in body]
 
-    job_tokens = _overlap_tokens(job.title)
+    job_tokens = {t for t in _overlap_tokens(job.title)
+                  if len(t) >= 2 and t not in _TITLE_STOP}
     overlapped = sorted(set(job_tokens) & set(title_tokens))
     missed_title = sorted(set(job_tokens) - set(title_tokens))
 

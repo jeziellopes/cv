@@ -119,6 +119,11 @@ JD_STOPWORDS = STOPWORDS | set(
     de em da das do dos uma um uma uma vivência vivências também ainda mesmo
     mesma através entre dentro fora além muito muita todo toda todos todas ser
     sendo foi seja dentro partir assim bem menos mais já hoje coisa coisas
+    boa bom criar criando criar participar participantes modelo modelos
+    tecnologia tecnologias principal principais estacao estação brooklin berrini
+    sp eou vivencia vivencias e/ou paulo/sp hibrido hibrida híbrido híbrida
+    remoto remota presencial utilizar utilizando venha quer essa parte ao na
+    que se
     """.split()
 )
 
@@ -698,25 +703,40 @@ def score_leadership(cv: Optional[dict]) -> Check:
 
 # ---- tailoring ----------------------------------------------
 
-def jd_keywords(text: str) -> list[str]:
-    # The JD file's own header carries URLs; their tokens ("vagas", "source",
-    # a company slug) are not keywords and must not tax the coverage score.
+def jd_keyword_stats(text: str) -> tuple[list[str], int]:
+    """The JD's kept keywords and the pre-filter token count.
+
+    The pre-filter count counts distinct content tokens after the trivial drops
+    (length, duplicates, digits, domains) and before the stopword filter, so
+    the filter's own effect is visible. One implementation backs jd_keywords,
+    ats coverage and cv fit, so they cannot disagree on what a keyword is.
+    """
     text = "\n".join(
         line for line in (text or "").splitlines()
         if not re.match(r"^\s*(?:apply[: ]*)?https?://", line.strip())
     )
-    tokens = WORD_RE.findall(_fold_accent(text or ""))
-    out: list[str] = []
+    text = re.sub(r"https?://\S+", " ", text)
     seen: set[str] = set()
-    for token in tokens:
+    kept: list[str] = []
+    kept_seen: set[str] = set()
+    total = 0
+    for token in WORD_RE.findall(_fold_accent(text or "")):
         low = _fold_accent(token.lower()).strip(".-/")
-        if len(low) < 2 or low in _JD_STOP or low in seen:
+        if len(low) < 2 or low in seen:
             continue
         if any(ch.isdigit() for ch in low) or _looks_like_domain(low):
             continue
         seen.add(low)
-        out.append(low)
-    return out
+        total += 1
+        if low in _JD_STOP or low in kept_seen:
+            continue
+        kept_seen.add(low)
+        kept.append(low)
+    return kept, total
+
+
+def jd_keywords(text: str) -> list[str]:
+    return jd_keyword_stats(text)[0]
 
 
 def score_tailoring(text: str, jd_text: str) -> tuple[Check, list[str]]:

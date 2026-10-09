@@ -361,3 +361,47 @@ def test_score_command_shows_what_drives_the_fit(queued):
     assert "jd coverage" in result.output
     assert "skill coverage" in result.output
     assert "title overlap" in result.output
+
+
+# ---- cv fit (spec 0012) ----------------------------
+
+def test_fit_report_matches_the_kept_set_against_curated_tags(tmp_path, monkeypatch):
+    monkeypatch.setattr(inbox, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(inbox, "LEDGER", tmp_path / "inbox.json")
+    (tmp_path / "cv.json").write_text(json.dumps({
+        "skills": [{"group": "g", "tags": ["TypeScript", "React", "Stripe"]}],
+    }), encoding="utf-8")
+    inbox.save_capture(dict(
+        DAMAGED,
+        description="Precisamos de TypeScript, Node.js e vivência em meios "
+                    "de pagamento com Stripe."), tmp_path)
+    report = inbox.fit_report("acme", "en", tmp_path)
+    assert report["total_tokens"] > len(report["kept"])
+    assert "typescript" in report["kept"]
+    assert "precisamos" not in report["kept"]
+    assert "Stripe" in report["matched"]
+    assert "TypeScript" in report["matched"]
+    assert "React" in report["unmatched"]
+
+
+def test_fit_report_is_none_for_an_unknown_slug(tmp_path, monkeypatch):
+    monkeypatch.setattr(inbox, "LEDGER", tmp_path / "inbox.json")
+    assert inbox.fit_report("nope", "en", tmp_path) is None
+
+
+def test_fit_command_prints_tokens_and_hits(tmp_path, monkeypatch):
+    import generate as gen
+    monkeypatch.setattr(inbox, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(inbox, "LEDGER", tmp_path / "inbox.json")
+    monkeypatch.setattr(gen, "BASE_DIR", tmp_path)
+    (tmp_path / "cv.json").write_text(json.dumps({
+        "skills": [{"group": "g", "tags": ["TypeScript", "Stripe"]}],
+    }), encoding="utf-8")
+    inbox.save_capture(dict(
+        DAMAGED,
+        description="Precisamos de TypeScript e meios de pagamento com Stripe."),
+        tmp_path)
+    result = runner.invoke(gen.app, ["fit", "acme"])
+    assert result.exit_code == 0
+    assert "tokens" in result.output and "kept" in result.output
+    assert "hit" in result.output and "Stripe" in result.output

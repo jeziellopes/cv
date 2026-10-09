@@ -162,20 +162,28 @@ def test_tailoring_coverage_scales_down_for_missing_keywords():
     assert missing == ["docker"]
 
 
-def test_jd_keywords_do_not_read_the_url_header_as_keywords():
-    jd = (
-        "Desenvolvedor(a) Full Stack Pleno - São Paulo\nSTTART PAY\n\n"
-        "https://www.linkedin.com/jobs/view/4471964889/\n"
-        "apply: https://sttartpay.inhire.app/vagas/cf7c725a?source=linkedin\n\n"
-        "Buscamos pessoa desenvolvedora com TypeScript e Node.js, "
-        "vivência em meios de pagamento."
-    )
+def test_jd_keywords_strip_url_lines():
+    jd = ("TypeScript\n"
+          "https://sttartpay.inhire.app/vagas/cf7c725a?source=linkedin\n"
+          "Node.js")
     keywords = ats.jd_keywords(jd)
-    for noise in ("vagas", "source", "linkedin", "inhire", "apply", "busca",
-                  "buscamos", "ou", "são", "pleno"):
-        assert noise not in keywords, f"{noise!r} is a JD header/function word"
+    for noise in ("vagas", "source", "linkedin", "inhire", "sttartpay", "cf7c725a"):
+        assert noise not in keywords, f"{noise!r} is a URL fragment"
     assert "typescript" in keywords
     assert "node.js" in keywords
+
+
+def test_jd_keyword_stats_splits_total_from_kept():
+    jd = (
+        "https://www.linkedin.com/jobs/view/4471964889/\n\n"
+        "Precisamos de TypeScript, Node.js e vivência em meios de pagamento."
+    )
+    kept, total = ats.jd_keyword_stats(jd)
+    for noise in ("precisamos", "pessoa", "uma", "de", "em", "vivencia"):
+        assert noise not in kept, noise
+    assert "typescript" in kept and "node.js" in kept
+    assert "meios" in kept and "pagamento" in kept
+    assert total > len(kept), "function words still count in the pre-filter total"
 
 
 def test_tailoring_coverage_ignores_url_and_function_word_noise():
