@@ -67,7 +67,9 @@ going to parse it.
    evidenced names claim after `cv gaps refresh`; anything else is a question
    for the operator (`cv gaps answer`), never a silent drop and never a
    padding of the score. The flow converts a missing list into evidence
-   work, and coverage is gained by resolving evidence.
+   work, and coverage is gained by resolving evidence. Skill mentions are
+   matched broadly: "ui", "ux" and "ux/ui" are one claim, because a company's
+   ATS will not spell-check the variants.
 9. **Never invent data.** Summary, bullets, figures and tags come from the
    JSON. If a claim is not reproducible from a repository, it does not go on
    the CV, whatever the posting asked for.

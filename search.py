@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from ats import JD_STOPWORDS, _JD_STOP, _fold_accent, _looks_like_domain
+from skills import match_key
 
 # Title overlap uses a small, dedicated stop set, never the full JD stop list:
 # "full" and "stack" are functiony words to a JD tokenizer but are exactly the
@@ -526,6 +527,7 @@ def rank(jobs: list[Job], cv: dict, query: str = "") -> list[Ranked]:
     """
     cv_body = _cv_text(cv).lower()
     cv_tokens = _tokens(cv_body)
+    cv_keys = {match_key(t) for t in cv_tokens}
     title_tokens = {t for t in _overlap_tokens(
         cv.get("personal", {}).get("title", ""))
         if len(t) >= 2 and t not in _TITLE_STOP}
@@ -539,13 +541,16 @@ def rank(jobs: list[Job], cv: dict, query: str = "") -> list[Ranked]:
     for job in jobs:
         keywords = _jd_terms_for(job, skill_vocab)
         jd_coverage = (
-            sum(1 for k in keywords if k in cv_tokens) / len(keywords)
+            sum(1 for k in keywords if match_key(k) in cv_keys) / len(keywords)
             if keywords
             else 0.0
         )
         body = (job.title + " " + job.description).lower()
+        body_keys = {match_key(t) for t in _tokens(body)}
         skill_coverage = (
-            sum(1 for t in skill_tags if t.lower() in body) / len(skill_tags)
+            (sum(1 for t in skill_tags if any(
+                match_key(tok) in body_keys for tok in _tokens(t.lower())))
+             / len(skill_tags))
             if skill_tags
             else 0.0
         )
@@ -564,7 +569,9 @@ def rank(jobs: list[Job], cv: dict, query: str = "") -> list[Ranked]:
             fit = round(100 * cv_fit * (1.0 + 0.5 * query_relevance))
         else:
             fit = round(100 * cv_fit)
-        matched = [t for t in skill_tags if t.lower() in body][:6]
+        matched = [t for t in skill_tags
+                    if any(match_key(tok) in body_keys
+                           for tok in _tokens(t.lower()))][:6]
         ranked.append(Ranked(job=job, fit=fit, matched=matched))
     ranked.sort(key=lambda r: (-r.fit, r.job.title.lower()))
     return ranked
@@ -580,6 +587,7 @@ def explain(job: Job, cv: dict) -> dict:
     """
     cv_body = _cv_text(cv).lower()
     cv_tokens = _tokens(cv_body)
+    cv_keys = {match_key(t) for t in cv_tokens}
     title_tokens = {t for t in _overlap_tokens(
         cv.get("personal", {}).get("title", ""))
         if len(t) >= 2 and t not in _TITLE_STOP}
@@ -588,11 +596,13 @@ def explain(job: Job, cv: dict) -> dict:
         token for t in skill_tags for token in _tokens(t)}
 
     keywords = _jd_terms_for(job, skill_vocab)
-    jd_hits = [k for k in keywords if k in cv_tokens]
-    jd_misses = [k for k in keywords if k not in cv_tokens]
+    jd_hits = [k for k in keywords if match_key(k) in cv_keys]
+    jd_misses = [k for k in keywords if match_key(k) not in cv_keys]
 
     body = (job.title + " " + job.description).lower()
-    matched = [t for t in skill_tags if t.lower() in body]
+    body_keys = {match_key(t) for t in _tokens(body)}
+    matched = [t for t in skill_tags if any(
+        match_key(tok) in body_keys for tok in _tokens(t.lower()))]
 
     job_tokens = {t for t in _overlap_tokens(job.title)
                   if len(t) >= 2 and t not in _TITLE_STOP}

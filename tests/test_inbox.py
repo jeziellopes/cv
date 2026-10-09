@@ -369,12 +369,13 @@ def test_fit_report_matches_the_kept_set_against_curated_tags(tmp_path, monkeypa
     monkeypatch.setattr(inbox, "BASE_DIR", tmp_path)
     monkeypatch.setattr(inbox, "LEDGER", tmp_path / "inbox.json")
     (tmp_path / "cv.json").write_text(json.dumps({
-        "skills": [{"group": "g", "tags": ["TypeScript", "React", "Stripe"]}],
+        "skills": [{"group": "g", "tags": ["TypeScript", "React", "Stripe",
+                                           "UX Principles"]}],
     }), encoding="utf-8")
     inbox.save_capture(dict(
         DAMAGED,
         description="Precisamos de TypeScript, Node.js e vivência em meios "
-                    "de pagamento com Stripe."), tmp_path)
+                    "de pagamento com Stripe, com foco em ux/ui."), tmp_path)
     report = inbox.fit_report("acme", "en", tmp_path)
     assert report["total_tokens"] > len(report["kept"])
     assert "typescript" in report["kept"]
@@ -382,6 +383,9 @@ def test_fit_report_matches_the_kept_set_against_curated_tags(tmp_path, monkeypa
     assert "Stripe" in report["matched"]
     assert "TypeScript" in report["matched"]
     assert "React" in report["unmatched"]
+    assert "UX Principles" in report["matched"], \
+        "a ui/ux variant in the JD covers the UX claim"
+    assert "uiux" not in [u["term"] for u in report["uncovered"]]
     assert "node.js" in [u["term"] for u in report["uncovered"]]
     for u in report["uncovered"]:
         assert u["status"] in {"soft", "allowed", "evidenced", "needs an answer"}

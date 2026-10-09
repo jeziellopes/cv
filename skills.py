@@ -93,6 +93,18 @@ def normalize(value: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
+# A posting's ATS will not check each spelling of a skill: "ui", "ux",
+# "ux/ui" and "ui/ux" are one claim. Matching collapses them so a CV that
+# claims "UX Principles" covers a JD that asks for "ux/ui".
+_UI_UX_VARIANTS = {"ui", "ux", "uiux", "uxui"}
+
+
+def match_key(term: str) -> str:
+    """A compact key for skill matching, tolerant of spelling variants."""
+    key = normalize(term).replace(" ", "")
+    return "uiux" if key in _UI_UX_VARIANTS else key
+
+
 def soft_set(config: Optional[dict] = None) -> set[str]:
     config = config if config is not None else load_config()
     return {normalize(s) for s in config.get("soft", [])}

@@ -58,6 +58,18 @@ def test_demand_is_word_bounded_so_a_substring_does_not_match(tmp_path):
     assert skills.demand(["mem"], [jd]) == {}, "mem must not match memória"
 
 
+@pytest.mark.parametrize("variant", ["ui", "ux", "ui/ux", "ux/ui", "UI UX",
+                                     "UI/UX"])
+def test_match_key_collapses_the_ui_ux_variants(variant):
+    assert skills.match_key(variant) == "uiux", variant
+
+
+def test_match_key_keeps_other_skill_names_distinct():
+    assert skills.match_key("React") == "react"
+    assert skills.match_key("Node.js") == "nodejs"
+    assert skills.match_key("UX Principles") == "uxprinciples"
+
+
 def test_unproven_in_flags_an_unevidenced_tag():
     ledger = {"evidence": {"React": ["orange/protos"]}}
     assert skills.unproven_in(_cv("React", "DynamoDB"), ledger) == ["DynamoDB"]

@@ -1105,6 +1105,7 @@ def fit_report(slug: str, lang: str = "en",
     (spec 0012). None means an unknown slug; an error key names the miss.
     """
     import ats
+    import skills
 
     base_dir = base_dir or BASE_DIR
     entry = find_entry(slug)
@@ -1137,25 +1138,28 @@ def fit_report(slug: str, lang: str = "en",
         return {"error": f"invalid cv json: {cv_path.name}"}
     tags = [tag for group in cv.get("skills", []) for tag in group.get("tags", [])]
 
-    kept_set = set(kept)
+    kept_keys = {skills.match_key(k) for k in kept}
     matched: list[str] = []
     unmatched: list[str] = []
     for tag in tags:
         toks = {t for t in re.findall(r"[a-z0-9+#.-]+",
                                       ats._fold_accent(tag.lower()))
                 if len(t) >= 2}
-        if toks and toks <= kept_set:
+        # Broad mention: a variant of the claim in the JD keeps the tag, so a
+        # CV claiming "UX Principles" covers "ui", "ux" and "ux/ui".
+        hit = bool(toks) and any(skills.match_key(t) in kept_keys for t in toks)
+        if hit:
             matched.append(tag)
         else:
             unmatched.append(tag)
 
-    covered = set()
+    covered_keys = set()
     for tag in matched:
-        covered |= {t for t in re.findall(r"[a-z0-9+#.-]+",
-                                          ats._fold_accent(tag.lower()))
-                    if len(t) >= 2}
+        covered_keys |= {skills.match_key(t) for t in re.findall(
+            r"[a-z0-9+#.-]+", ats._fold_accent(tag.lower())) if len(t) >= 2}
     uncovered = [{"term": term, "status": _term_status(term)}
-                 for term in sorted(kept_set - covered)]
+                 for term in sorted({k for k in kept
+                                     if skills.match_key(k) not in covered_keys})]
     return {
         "slug": slug,
         "lang": lang,

@@ -329,6 +329,14 @@
     "mysql": [
       "mysql"
     ],
+    "sql": [
+      "sql`",
+      "knex.raw",
+      "queryraw",
+      "$queryraw",
+      "sequelize.query",
+      "drizzle"
+    ],
     "prisma": [
       "prisma"
     ],
