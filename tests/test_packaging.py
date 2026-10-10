@@ -76,12 +76,12 @@ def test_orange_theme_is_the_default_generate():
 def test_orange_theme_carries_the_brand_identity():
     import generate
     theme = generate.THEMES["orange"]
-    assert "Geist" in theme["fonts_url"]
+    assert theme["fonts_url"] == "", "orange uses the system font, colour only"
     assert "#ff4c00" in theme["css_vars"] or "#ff4c00" in theme["extra_css"]
 
 
 def test_orange_theme_builds_css():
     import generate
     css = generate.build_css("orange")
-    assert "Geist" in css
     assert "#ff4c00" in css
+    assert "system-ui" in css

@@ -246,7 +246,7 @@ applied, is reported rather than dropped.
 
 | Theme | Font | Accent |
 |---|---|---|
-| `orange` *(default)* | Geist | Orange `#ff4c00` |
+| `orange` *(default)* | system | Orange `#ff4c00` |
 | `classic` | Volkhov + PT Sans | Black |
 | `modern` | Inter | Blue `#2563eb` on name, titles & dots |
 | `minimal` | IBM Plex Sans | Dark grey, uppercase section labels, light borders |

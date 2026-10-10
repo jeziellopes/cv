@@ -347,20 +347,16 @@ THEMES = {
     },
 
     # ── Orange ───────────────────────────────────────────────
-    # Ported from the operator's portfolio site: Geist font pair, neutral
-    # greys and one orange accent used sparingly. Accent lands on the large
-    # name, the section rule and the language dots; any small accent text
-    # uses the darker #c93a00 so it clears 4.5:1, like the site's --link.
+    # Ported from the operator's portfolio site: neutral greys and one
+    # orange accent used sparingly, on the system font. Accent lands on the
+    # large name, the section rule and the language dots; any small accent
+    # text uses the darker #c93a00 so it clears 4.5:1, like the site's link.
     "orange": {
-        "fonts_url": (
-            "https://fonts.googleapis.com/css2?"
-            "family=Geist:wght@400;500;600;700"
-            "&family=Geist+Mono:wght@400;500&display=swap"
-        ),
+        "fonts_url": "",
         "css_vars": f"""
 :root {{
-  --font-heading: 'Geist', ui-sans-serif, system-ui, sans-serif;
-  --font-body:    'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-heading: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-body:    system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
   --color-text:   #212122;
   --color-muted:  #5f5f61;
   --color-border: #e7e7e8;
