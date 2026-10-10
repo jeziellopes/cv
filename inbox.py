@@ -1506,25 +1506,20 @@ def status_command() -> None:
             for cv_file, tags in gaps.items():
                 typer.echo(f"    {slug:22} {cv_file}  <- {', '.join(tags)}")
 
-    # Done captures are not shown; the status screen is for what still needs
-    # work: JD dates and apply order matter only while a capture is pending.
-    pending_slugs = {e.get("slug", "") for e in entries
-                     if step[e.get("slug", "")] in ("captured", "cv-ready", "profile")}
-    dated = []
-    for slug in pending_slugs:
-        date = jd_date(slug)
-        if date:
-            dated.append((date, slug))
-    if dated:
-        typer.echo("\n  JD generated (pending only):")
-        for date, slug in sorted(dated):
-            typer.echo(f"    {date}  {slug}")
-
-    if pending:
-        typer.echo("\n  waiting on a CV:")
-        for e in pending:
-            typer.echo(f"    {e.get('slug', ''):24} {e.get('company', '')} - "
-                       f"{e.get('title', '')}")
+    # One list, one line per pending capture: what still needs work, and which.
+    pending_apply = [e for e in entries
+                     if step[e.get("slug", "")] in ("captured", "cv-ready", "profile")]
+    rows = []
+    for e in pending_apply:
+        slug = e.get("slug", "")
+        date = jd_date(slug) or "-"
+        action = "needs CV" if step[slug] == "captured" else "apply"
+        rows.append((date, slug, e.get("company", ""), e.get("title", ""), action))
+    rows.sort(reverse=True)
+    if rows:
+        typer.echo("\n  pending (needs CV, then apply):")
+        for date, slug, company, title, action in rows:
+            typer.echo(f"    {date}  {slug:26} {company} - {title}  [{action}]")
 
 
 if __name__ == "__main__":

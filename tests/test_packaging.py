@@ -176,10 +176,11 @@ def test_generate_company_projects_the_master_plus_scope(tmp_path, monkeypatch):
     assert derived["experience"][0]["role"] == "Principal Full Stack Engineer"
 
 
-def test_new_writes_a_scope_not_a_master_copy(tmp_path, monkeypatch):
+def test_new_and_translate_are_removed_from_the_cli(tmp_path, monkeypatch):
+    """Pruned commands must fail loudly, not silently vanish into the list."""
     import generate as g
     monkeypatch.setattr(g, "BASE_DIR", tmp_path)
-    result = CliRunner().invoke(g.app, ["new", "acme", "--lang", "pt"])
-    assert result.exit_code == 0, result.output
-    assert (tmp_path / "companies" / "acme" / "scope-pt.json").is_file()
-    assert not (tmp_path / "companies" / "acme" / "cv-pt.json").exists()
+    for command in ("new", "translate"):
+        result = CliRunner().invoke(g.app, [command])
+        assert result.exit_code != 0, command
+        assert "No such command" in result.output, command

@@ -473,83 +473,6 @@ def build_html(cv: dict, theme_name: str) -> str:
 </body>
 </html>"""
 
-# ---- translation helpers ------------------------------------
-
-def get_keywords_to_preserve():
-    """Return a list of English keywords that should be preserved during translation."""
-    return [
-        # Technologies
-        "React", "React Native", "React Hooks", "Context API", "Redux",
-        "Node.js", "NestJS", "Express",
-        "TypeScript", "JavaScript", "ES6+", "ES5",
-        "HTML5", "CSS3",
-        "API", "REST", "REST API", "REST APIs", "WebSockets",
-        "SQL", "NoSQL",
-        # Frameworks & Tools
-        "Storybook", "Radix UI", "Styled-Components",
-        "Vite", "Webpack", "Gatsby",
-        "Jest", "Testing Library", "Cypress", "Vitest",
-        "React Hook Form", "Zod",
-        "TanStack Router",
-        "Zustand",
-        "Docker", "Kubernetes", "Lambda",
-        # Architecture
-        "microservices", "cloud-native", "design system", "design systems",
-        "monolithic MVC", "Repository Pattern", "CI/CD",
-        "observability", "SRE",
-        # Practices
-        "code quality", "code reviews", "performance optimization",
-        "accessibility", "responsive design",
-        "TDD", "SDD", "test-driven development", "spec-driven development",
-        "mentorship", "technical excellence",
-        "agile", "backlog refinement",
-        # Roles & Companies
-        "frontend", "backend", "full-stack",
-        "Senior", "Developer", "Engineer",
-        "ioasys", "BR Media Group", "Base Exchange", "Flowa", "Flowa Technologies",
-        "AWS", "AWS S3", "LinkedIn",
-    ]
-
-def translate_text_with_keywords(text: str, source_lang: str = "en", target_lang: str = "pt") -> str:
-    """
-    Translate text while preserving English keywords.
-    
-    Args:
-        text: Text to translate
-        source_lang: Source language code
-        target_lang: Target language code
-    
-    Returns:
-        Translated text with keywords preserved
-    """
-    keywords = get_keywords_to_preserve()
-    
-    # Create placeholder map
-    placeholder_map = {}
-    placeholders_text = text
-    
-    # Replace keywords with placeholders (case-insensitive)
-    for i, keyword in enumerate(keywords):
-        pattern = r'\b' + re.escape(keyword) + r'\b'
-        if re.search(pattern, placeholders_text, re.IGNORECASE):
-            placeholder = f"{{TECH_{i}}}"
-            placeholders_text = re.sub(pattern, placeholder, placeholders_text, flags=re.IGNORECASE)
-            placeholder_map[placeholder] = keyword
-    
-    # Translate using google-translate-api
-    try:
-        from google_translate_api import translate
-        translated = translate(placeholders_text, source_lang, target_lang)
-    except ImportError:
-        typer.echo("⚠ google-translate-api not installed. Install with: pip install google-translate-api")
-        return text
-    
-    # Restore keywords
-    for placeholder, keyword in placeholder_map.items():
-        translated = translated.replace(placeholder, keyword)
-    
-    return translated
-
 # ---- CLI commands -------------------------------------------
 
 def candidate_filename_stem(cv_path: Path) -> str:
@@ -1173,41 +1096,6 @@ def search(
         path = searchmod.ingest(target, BASE_DIR)
         typer.echo(f"✔ JD written to {path.relative_to(BASE_DIR)}")
         typer.echo(f"  Next: cv generate --company {path.parent.name} --pdf && cv ats-check --company {path.parent.name}")
-
-
-@app.command()
-def new(
-    company_id: Annotated[str, typer.Argument(help="Company ID to scaffold (e.g. acme)")],
-    lang: Annotated[str, typer.Option("--lang", "-l", help="Language code")] = "en",
-):
-    """Scaffold a company's scope so its CV can project from the master."""
-    company_dir = BASE_DIR / "companies" / company_id
-    dest = company_dir / f"scope-{lang}.json"
-
-    if dest.exists():
-        typer.echo(f"✖ {dest.relative_to(BASE_DIR)} already exists.", err=True)
-        raise typer.Exit(1)
-
-    company_dir.mkdir(parents=True, exist_ok=True)
-    dest.write_text("{\n  \"frame\": {}\n}\n", encoding="utf-8")
-    typer.echo(f"✔ Scoped {dest.relative_to(BASE_DIR)}")
-    typer.echo("  Next: edit the scope, then run:")
-    typer.echo(f"    cv generate --company {company_id} --pdf")
-
-
-@app.command()
-def translate(
-    text: Annotated[str, typer.Option("--text", "-t", help="Text to translate")] = "",
-    source_lang: Annotated[str, typer.Option("--from", "-f", help="Source language")] = "en",
-    target_lang: Annotated[str, typer.Option("--to", "-o", help="Target language")] = "pt",
-):
-    """Translate text while preserving English technical keywords."""
-    if not text:
-        typer.echo("Please provide text to translate using --text option.", err=True)
-        raise typer.Exit(1)
-    
-    result = translate_text_with_keywords(text, source_lang, target_lang)
-    typer.echo(f"\n{result}\n")
 
 
 def main() -> None:

@@ -256,7 +256,7 @@ def test_status_jd_list_is_pending_only(queued):
     inbox.mark_applied("done1", queued)
     result = runner.invoke(inbox.app, ["status"])
     assert result.exit_code == 0
-    assert "pending only" in result.stdout
+    assert "pending (needs CV, then apply)" in result.stdout
     assert "starian" in result.stdout
     assert "done1" not in result.stdout, "an applied JD must not stay in status"
 

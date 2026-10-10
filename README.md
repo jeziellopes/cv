@@ -340,21 +340,6 @@ Optional field, for company CVs. Omit it for the base CV.
 
 `contract` and `note` are optional. `amount` is required if the key is present.
 
-## Translation with keyword preservation
-
-When translating your CV, technical terms (React, Design Systems, and so on)
-should remain in English for consistency. Use the built-in `translate` command:
-
-```bash
-cv translate --text "Your summary here" --from en --to pt
-```
-
-The command replaces English keywords with placeholders, translates the text,
-then restores the keywords. Supported keywords include React, TypeScript,
-Design Systems, TDD, and AWS.
-
-> **Note:** Requires `google-translate-api`. Install with `pip install google-translate-api`.
-
 ## Page layout & margins
 
 Content flows naturally across pages, with no manual page splitting. Playwright
