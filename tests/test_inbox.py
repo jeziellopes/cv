@@ -250,6 +250,17 @@ def test_status_counts_ready_and_pending(queued):
     assert "CV ready         1" in result.stdout
 
 
+def test_status_jd_list_is_pending_only(queued):
+    inbox.save_capture(dict(PAYLOAD, company="Done1", title="Backend",
+                            url="https://www.linkedin.com/jobs/view/1/"), queued)
+    inbox.mark_applied("done1", queued)
+    result = runner.invoke(inbox.app, ["status"])
+    assert result.exit_code == 0
+    assert "pending only" in result.stdout
+    assert "starian" in result.stdout
+    assert "done1" not in result.stdout, "an applied JD must not stay in status"
+
+
 def test_applied_echoes_the_step_transition(base):
     inbox.save_capture(PAYLOAD, base)
     result = runner.invoke(inbox.app, ["applied", "starian"])

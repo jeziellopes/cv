@@ -1506,14 +1506,18 @@ def status_command() -> None:
             for cv_file, tags in gaps.items():
                 typer.echo(f"    {slug:22} {cv_file}  <- {', '.join(tags)}")
 
+    # Done captures are not shown; the status screen is for what still needs
+    # work: JD dates and apply order matter only while a capture is pending.
+    pending_slugs = {e.get("slug", "") for e in entries
+                     if step[e.get("slug", "")] in ("captured", "cv-ready", "profile")}
     dated = []
-    for e in entries:
-        date = jd_date(e.get("slug", ""))
+    for slug in pending_slugs:
+        date = jd_date(slug)
         if date:
-            dated.append((date, e.get("slug", "")))
+            dated.append((date, slug))
     if dated:
-        typer.echo("\n  JD generated:")
-        for date, slug in dated:
+        typer.echo("\n  JD generated (pending only):")
+        for date, slug in sorted(dated):
             typer.echo(f"    {date}  {slug}")
 
     if pending:
