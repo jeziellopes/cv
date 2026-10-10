@@ -630,13 +630,29 @@ def compose_cv(master: dict, scope: dict) -> dict:
 
     experiences = scope.get("experiences")
     if experiences is not None:
-        by_org = {item.get("org"): item for item in out.get("experience", [])}
+        entries = out.get("experience", [])
+
+        def pick(spec: dict) -> dict:
+            org = spec.get("org")
+            start = spec.get("start")
+            candidates = [e for e in entries if e.get("org") == org]
+            if start is not None:
+                for e in candidates:
+                    if e.get("start") == start:
+                        return e
+                raise ValueError(
+                    f"scope names an unknown start {start!r} for {org!r}")
+            if len(candidates) == 1:
+                return candidates[0]
+            if not candidates:
+                raise ValueError(f"scope names an unknown experience {org!r}")
+            raise ValueError(
+                f"ambiguous experience {org!r}; add a start to pick one of "
+                f"{[e.get('start') for e in candidates]}")
+
         chosen: list[dict] = []
         for spec in experiences:
-            org = spec.get("org")
-            base = by_org.get(org)
-            if base is None:
-                raise ValueError(f"scope names an unknown experience {org!r}")
+            base = pick(spec)
             item = copy.deepcopy(base)
             if spec.get("role"):
                 item["role"] = str(spec["role"])

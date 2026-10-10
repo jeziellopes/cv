@@ -131,6 +131,23 @@ def test_compose_cv_overrides_title_and_summary():
     assert out["summary"] == "Suporte e infraestrutura."
 
 
+def test_compose_cv_orders_duplicate_orgs_by_start():
+    import generate
+    master = {
+        "experience": [
+            {"org": "CSP", "role": "Aux.", "start": "02/2011", "bullets": ["b"]},
+            {"org": "CSP", "role": "Técnico", "start": "08/2014", "bullets": ["b2"]},
+        ],
+        "summary": "s", "skills": [],
+    }
+    scope = {"experiences": [
+        {"org": "CSP", "start": "08/2014"},
+        {"org": "CSP", "start": "02/2011"},
+    ]}
+    out = generate.compose_cv(master, scope)
+    assert [e["role"] for e in out["experience"]] == ["Técnico", "Aux."]
+
+
 def test_generate_company_projects_the_master_plus_scope(tmp_path, monkeypatch):
     import generate as g
     monkeypatch.setattr(g, "BASE_DIR", tmp_path)
