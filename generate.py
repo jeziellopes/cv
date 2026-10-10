@@ -13,12 +13,12 @@
 # Available languages: en (default), pt
 # ============================================================
 
+import copy
+import html as _html
 import json
 import os
 import re
 import sys
-import html as _html
-import shutil
 import unicodedata
 from pathlib import Path
 from typing import Optional
@@ -593,6 +593,62 @@ def resolve_browsers_path():
     return ""
 
 
+# ---- scoping: the cv is a projection of the master (ADR 0011) --------------
+
+def load_scope(company: Optional[str], lang: str,
+               base_dir: Optional[Path] = None) -> dict:
+    """A posting's deltas against the master, or {} when none is written."""
+    base_dir = base_dir or BASE_DIR
+    path = base_dir / "companies" / company / f"scope-{lang}.json"
+    if not path.is_file():
+        return {}
+    try:
+        scope = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        raise ValueError(f"invalid scope json: {path}") from exc
+    return scope if isinstance(scope, dict) else {}
+
+
+def compose_cv(master: dict, scope: dict) -> dict:
+    """Project the master through a scope: frame, order, and keep deltas.
+
+    An empty scope returns the master unchanged, so the very first projection
+    of a capture equals the general profile. `frame` overrides role wording;
+    `experiences` narrows to an explicit, ordered subset.
+    """
+    out = copy.deepcopy(master)
+    if scope.get("summary"):
+        out["summary"] = str(scope["summary"])
+
+    frame = scope.get("frame") or {}
+    for item in out.get("experience", []):
+        override = frame.get(item.get("org"))
+        if override and override.get("role"):
+            item["role"] = str(override["role"])
+
+    experiences = scope.get("experiences")
+    if experiences is not None:
+        by_org = {item.get("org"): item for item in out.get("experience", [])}
+        chosen: list[dict] = []
+        for spec in experiences:
+            org = spec.get("org")
+            base = by_org.get(org)
+            if base is None:
+                raise ValueError(f"scope names an unknown experience {org!r}")
+            item = copy.deepcopy(base)
+            if spec.get("role"):
+                item["role"] = str(spec["role"])
+            kept = spec.get("bullets")
+            if kept is not None:
+                items = base.get("bullets", []) or []
+                item["bullets"] = [
+                    items[b] if isinstance(b, int) else str(b) for b in kept
+                ]
+            chosen.append(item)
+        out["experience"] = chosen
+    return out
+
+
 @app.command()
 def generate(
     company: Annotated[Optional[str], typer.Option("--company", "-c", help="Company ID (reads companies/{id}/cv-{lang}.json, writes companies/{id}/<CandidateName>-{lang}.pdf)")] = None,
@@ -602,6 +658,26 @@ def generate(
 ):
     """Render cv.json to index.html and optionally export a PDF."""
     cv_path, pdf_out, html_out = resolve_paths(company, lang)
+
+    if company:
+        # A tailored CV is a projection: master + per-company scope (ADR 0011),
+        # written as derived output, never hand-edited.
+        master = BASE_DIR / ("cv.json" if lang == "en" else f"cv-{lang}.json")
+        if not master.is_file():
+            typer.echo(f"✖ master cv not found: {master.name}", err=True)
+            raise typer.Exit(1)
+        try:
+            master_cv = json.loads(master.read_text(encoding="utf-8"))
+            scope = load_scope(company, lang)
+            composed = compose_cv(master_cv, scope)
+        except ValueError as exc:
+            typer.echo(f"✖ {exc}", err=True)
+            raise typer.Exit(1)
+        cv_path.parent.mkdir(parents=True, exist_ok=True)
+        cv_path.write_text(
+            json.dumps(composed, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8")
+        _, pdf_out, _ = resolve_paths(company, lang)
 
     if not cv_path.exists():
         typer.echo(f"✖ CV file not found: {cv_path.relative_to(BASE_DIR)}", err=True)
@@ -1086,23 +1162,18 @@ def new(
     company_id: Annotated[str, typer.Argument(help="Company ID to scaffold (e.g. acme)")],
     lang: Annotated[str, typer.Option("--lang", "-l", help="Language code")] = "en",
 ):
-    """Scaffold a new company CV from the base cv.json."""
+    """Scaffold a company's scope so its CV can project from the master."""
     company_dir = BASE_DIR / "companies" / company_id
-    dest = company_dir / f"cv-{lang}.json"
+    dest = company_dir / f"scope-{lang}.json"
 
     if dest.exists():
         typer.echo(f"✖ {dest.relative_to(BASE_DIR)} already exists.", err=True)
         raise typer.Exit(1)
 
-    src = BASE_DIR / ("cv.json" if lang == "en" else f"cv-{lang}.json")
-    if not src.exists():
-        typer.echo(f"✖ Base CV not found: {src.name}", err=True)
-        raise typer.Exit(1)
-
     company_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy(src, dest)
-    typer.echo(f"✔ Scaffolded {dest.relative_to(BASE_DIR)}")
-    typer.echo("  Next: edit the file, then run:")
+    dest.write_text("{\n  \"frame\": {}\n}\n", encoding="utf-8")
+    typer.echo(f"✔ Scoped {dest.relative_to(BASE_DIR)}")
+    typer.echo("  Next: edit the scope, then run:")
     typer.echo(f"    cv generate --company {company_id} --pdf")
 
 

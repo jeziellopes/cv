@@ -256,9 +256,11 @@ def test_gaps_answer_requires_one_flag(tmp_path, monkeypatch):
 
 
 def test_generate_refuses_a_cv_that_claims_an_unproven_skill(tmp_path, monkeypatch):
+    # The unproven claim lives in the master; the company CV is its projection.
+    (tmp_path / "cv-pt.json").write_text(json.dumps(_cv("DynamoDB")))
     folder = tmp_path / "companies" / "acme"
     folder.mkdir(parents=True)
-    (folder / "cv-pt.json").write_text(json.dumps(_cv("DynamoDB")))
+    (folder / "scope-pt.json").write_text("{}\n")
 
     ledger = tmp_path / "gaps.json"
     ledger.write_text(json.dumps({"evidence": {"React": ["r"]}}))
@@ -272,13 +274,11 @@ def test_generate_refuses_a_cv_that_claims_an_unproven_skill(tmp_path, monkeypat
         generate.app, ["generate", "--company", "acme", "--lang", "pt"])
     assert result.exit_code == 1
     assert "refusing" in result.output
-    assert not (folder / "index.html").exists(), "no HTML on a refused CV"
+    assert not (tmp_path / "index.html").exists(), "no HTML on a refused CV"
 
 
 def test_generate_writes_when_every_claim_is_proven(tmp_path, monkeypatch):
-    folder = tmp_path / "companies" / "acme"
-    folder.mkdir(parents=True)
-    (folder / "cv-pt.json").write_text(json.dumps({
+    (tmp_path / "cv-pt.json").write_text(json.dumps({
         "personal": {"name": "Test Person", "title": "Engineer", "phone": "+55",
                      "email": "a@b.co", "linkedin": "https://linkedin.com/in/x",
                      "portfolio": "https://x.dev", "github": "https://github.com/x",
@@ -290,6 +290,9 @@ def test_generate_writes_when_every_claim_is_proven(tmp_path, monkeypatch):
         "skills": [{"group": "g", "tags": ["React"]}],
         "languages": [],
     }))
+    folder = tmp_path / "companies" / "acme"
+    folder.mkdir(parents=True)
+    (folder / "scope-pt.json").write_text("{}\n")
 
     ledger = tmp_path / "gaps.json"
     ledger.write_text(json.dumps({"evidence": {"React": ["r"]}}))
@@ -303,6 +306,8 @@ def test_generate_writes_when_every_claim_is_proven(tmp_path, monkeypatch):
         generate.app, ["generate", "--company", "acme", "--lang", "pt"])
     assert result.exit_code == 0, result.output
     assert (tmp_path / "index.html").exists(), "render writes to BASE_DIR"
+    derived = json.loads((folder / "cv-pt.json").read_text(encoding="utf-8"))
+    assert derived["skills"][0]["tags"] == ["React"]
 
 
 @pytest.mark.parametrize("tag", ["DynamoDB", "APIGEE"])
