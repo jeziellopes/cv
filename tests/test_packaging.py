@@ -123,6 +123,14 @@ def test_compose_cv_refuses_a_scope_that_names_no_master_experience():
         generate.compose_cv(MASTER, {"experiences": [{"org": "Never"}]})
 
 
+def test_compose_cv_overrides_title_and_summary():
+    import generate
+    out = generate.compose_cv(
+        MASTER, {"title": "Analista de TI", "summary": "Suporte e infraestrutura."})
+    assert out["personal"]["title"] == "Analista de TI"
+    assert out["summary"] == "Suporte e infraestrutura."
+
+
 def test_generate_company_projects_the_master_plus_scope(tmp_path, monkeypatch):
     import generate as g
     monkeypatch.setattr(g, "BASE_DIR", tmp_path)

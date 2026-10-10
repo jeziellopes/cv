@@ -619,6 +619,8 @@ def compose_cv(master: dict, scope: dict) -> dict:
     out = copy.deepcopy(master)
     if scope.get("summary"):
         out["summary"] = str(scope["summary"])
+    if scope.get("title"):
+        out.setdefault("personal", {})["title"] = str(scope["title"])
 
     frame = scope.get("frame") or {}
     for item in out.get("experience", []):
