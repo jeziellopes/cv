@@ -73,15 +73,18 @@ def test_orange_theme_is_the_default_generate():
     assert "orange" in generate.THEMES
 
 
-def test_orange_theme_carries_the_brand_identity():
+def test_orange_theme_is_classic_with_an_orange_line():
     import generate
-    theme = generate.THEMES["orange"]
-    assert theme["fonts_url"] == "", "orange uses the system font, colour only"
-    assert "#ff4c00" in theme["css_vars"] or "#ff4c00" in theme["extra_css"]
+    classic = generate.THEMES["classic"]
+    orange = generate.THEMES["orange"]
+    assert orange["fonts_url"] == classic["fonts_url"]
+    assert "#ff4c00" in orange["css_vars"]          # orange border
+    assert "--color-text:   #000000" in orange["css_vars"]  # black text
+    assert "--color-accent: #000000" in orange["css_vars"]  # no orange text
 
 
 def test_orange_theme_builds_css():
     import generate
     css = generate.build_css("orange")
     assert "#ff4c00" in css
-    assert "system-ui" in css
+    assert "Volkhov" in css

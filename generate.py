@@ -347,29 +347,25 @@ THEMES = {
     },
 
     # ── Orange ───────────────────────────────────────────────
-    # Ported from the operator's portfolio site: neutral greys and one
-    # orange accent used sparingly, on the system font. Accent lands on the
-    # large name, the section rule and the language dots; any small accent
-    # text uses the darker #c93a00 so it clears 4.5:1, like the site's link.
+    # Classic typography and black text, with the sole difference being the
+    # orange brand line under the section titles. No orange text: the name,
+    # the bullets and the dots stay black, exactly like classic.
     "orange": {
-        "fonts_url": "",
+        "fonts_url": (
+            "https://fonts.googleapis.com/css2?"
+            "family=Volkhov:wght@400;700&family=PT+Sans:wght@400;700&display=swap"
+        ),
         "css_vars": f"""
 :root {{
-  --font-heading: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
-  --font-body:    system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
-  --color-text:   #212122;
-  --color-muted:  #5f5f61;
-  --color-border: #e7e7e8;
-  --color-accent: #ff4c00;
+  --font-heading: 'Volkhov', Arial, Helvetica, sans-serif;
+  --font-body:    'PT Sans', Arial, Helvetica, sans-serif;
+  --color-text:   #000000;
+  --color-muted:  #6f7878;
+  --color-border: #ff4c00;
+  --color-accent: #000000;
   --page-margin:  {PAGE_MARGIN}px;
 }}""",
-        "extra_css": """
-/* Orange: neutral greys, orange reserved for the name, the rule and dots */
-.header-name    { color: #ff4c00; letter-spacing: 0.04em; }
-.section-title  { border-bottom-color: #ff4c00; }
-.dot-filled     { background: #ff4c00; }
-.header-title   { color: #5f5f61; }
-""",
+        "extra_css": "",
     },
 }
 
