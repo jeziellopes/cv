@@ -357,6 +357,38 @@ def test_repair_leaves_a_capture_alone_when_no_title_source(tmp_path, monkeypatc
     assert inbox.load_ledger()[0]["title"] == "Remote"
 
 
+def test_repair_never_re_triages_a_queued_capture(tmp_path, monkeypatch):
+    """ADR 0009: a low score must not move a capture into triage on its own."""
+    monkeypatch.setattr(inbox, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(inbox, "LEDGER", tmp_path / "inbox.json")
+    monkeypatch.setattr(inbox, "_linkedin_title",
+                        lambda job_id: "Software Engineer")
+    monkeypatch.setattr(inbox, "score_payload",
+                        lambda payload, base_dir=None: 10)
+    inbox.save_capture(DAMAGED, tmp_path)
+    result = runner.invoke(inbox.app, ["repair", "--slug", "acme", "--apply"])
+    assert result.exit_code == 0
+    entry = inbox.load_ledger()[0]
+    assert entry["status"] == "new"
+    assert entry["triage"] is False
+    assert (tmp_path / "companies" / "acme" / "description.md").is_file()
+    assert not (tmp_path / "triage").exists(), "repair must not move anything"
+
+
+def test_repair_does_not_promote_a_triaged_capture(damaged_acme, monkeypatch):
+    """Promoting or dropping stays an explicit operator action."""
+    monkeypatch.setattr(inbox, "_linkedin_title",
+                        lambda job_id: "Software Engineer")
+    monkeypatch.setattr(inbox, "score_payload",
+                        lambda payload, base_dir=None: 90)
+    result = runner.invoke(inbox.app, ["repair", "--slug", "acme", "--apply"])
+    assert result.exit_code == 0
+    entry = inbox.load_ledger()[0]
+    assert entry["triage"] is True
+    assert entry["status"] == "triaged"
+    assert (damaged_acme / "triage" / "acme" / "description.md").is_file()
+
+
 def test_score_command_shows_what_drives_the_fit(queued):
     (queued / "cv.json").write_text(json.dumps({
         "personal": {"title": "Software Engineer"},

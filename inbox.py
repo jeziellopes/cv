@@ -377,10 +377,9 @@ def repair_capture(entry: dict, base_dir: Optional[Path] = None,
 
     report = {"slug": slug, "ok": True, "title": title, "location": location,
               "match": match, "dry": dry_run}
-    if match is None:
-        report["triage"] = bool(entry.get("triage"))
-    else:
-        report["triage"] = match < MIN_MATCH
+    # Repair re-derives fields and the score; it never changes a capture's
+    # step (ADR 0009). Triaging, promoting or dropping stays an explicit
+    # operator action: cv triage add, promote, drop.
     if dry_run:
         return report
 
@@ -392,22 +391,11 @@ def repair_capture(entry: dict, base_dir: Optional[Path] = None,
         candidate["location"] = location
         if match is not None:
             candidate["match"] = match
-            candidate["triage"] = report["triage"]
-            candidate["status"] = "triaged" if report["triage"] else "new"
 
     lines = list(head)
     if len(lines) >= 4:
         lines[0] = title
         lines[2] = location
-    if root == "triage" and not report["triage"]:
-        moved = base_dir / "companies" / slug / "description.md"
-        moved.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(jd), str(moved))
-        try:
-            (base_dir / "triage" / slug).rmdir()
-        except OSError:
-            pass
-        jd = moved
     jd.write_text("\n".join(lines) + "\n\n" + body, encoding="utf-8")
     save_ledger(entries)
     return report
@@ -1447,11 +1435,10 @@ def repair_command(
             typer.echo(f"  {name:26} left alone ({report.get('reason', 'no title')})")
             continue
         touched += 1
-        where = "triaged" if report.get("triage") else "in the queue"
-        verb = "would be" if report.get("dry") else "is now"
+        verb = "would repair" if report.get("dry") else "repaired"
         score = "unscored" if report.get("match") is None \
             else f"{report.get('match')}%"
-        typer.echo(f"  {name:26} {report.get('title')!r} {verb} {where} ({score})")
+        typer.echo(f"  {name:26} {report.get('title')!r} {verb} ({score})")
     if not apply and touched:
         typer.echo("\ndry run: nothing was written. Pass --apply to repair.")
 
@@ -1464,7 +1451,6 @@ def status_command() -> None:
         typer.echo("Queue is empty.")
         return
     step = {e.get("slug", ""): step_of(e.get("slug", ""), e) for e in entries}
-    pending = [e for e in entries if step[e.get("slug", "")] == "captured"]
     pending = [e for e in entries if step[e.get("slug", "")] == "captured"]
     with_cv = [e for e in entries if has_cv(e.get("slug", ""))]
     ready = [e for e in entries if step[e.get("slug", "")] == "cv-ready"]
