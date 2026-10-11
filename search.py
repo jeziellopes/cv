@@ -19,7 +19,7 @@ import html as _html
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ats import JD_STOPWORDS, _JD_STOP, _fold_accent, _looks_like_domain
+from ats import JD_STOPWORDS, _JD_STOP, _fold_accent, _looks_like_domain, alternative_keys
 from skills import match_key
 
 # Title overlap uses a small, dedicated stop set, never the full JD stop list:
@@ -540,11 +540,10 @@ def rank(jobs: list[Job], cv: dict, query: str = "") -> list[Ranked]:
     ranked = []
     for job in jobs:
         keywords = _jd_terms_for(job, skill_vocab)
-        jd_coverage = (
-            sum(1 for k in keywords if match_key(k) in cv_keys) / len(keywords)
-            if keywords
-            else 0.0
-        )
+        alts = alternative_keys(job.description)
+        jd_hits, jd_misses = _cover_demands(keywords, alts, cv_keys)
+        jd_coverage = len(jd_hits) / (len(jd_hits) + len(jd_misses)) \
+            if jd_hits or jd_misses else 0.0
         body = (job.title + " " + job.description).lower()
         body_keys = {match_key(t) for t in _tokens(body)}
         skill_coverage = (
@@ -577,6 +576,31 @@ def rank(jobs: list[Job], cv: dict, query: str = "") -> list[Ranked]:
     return ranked
 
 
+def _cover_demands(
+    keywords: list[str],
+    alts: dict[str, set[str]],
+    cv_keys: set[str],
+) -> tuple[list[str], list[str]]:
+    """Split a JD's terms into covered and missing demands.
+
+    A term the JD offered as an alternative to another ("pytest ou JEST")
+    belongs to that other term's demand, so the demand is covered by any of
+    its members and a missing demand is reported as one line naming the
+    choice the posting left open.
+    """
+    hits: list[str] = []
+    misses: list[str] = []
+    claimed: set[str] = set()
+    for keyword in keywords:
+        if keyword in claimed:
+            continue
+        group = alts.get(keyword, {keyword}) & set(keywords) or {keyword}
+        claimed.update(group)
+        label = " or ".join(sorted(group)) if len(group) > 1 else keyword
+        (hits if any(match_key(k) in cv_keys for k in group) else misses).append(label)
+    return hits, misses
+
+
 def explain(job: Job, cv: dict) -> dict:
     """The three components behind a fit percent, with counts and the terms
     that drive each one.
@@ -596,8 +620,11 @@ def explain(job: Job, cv: dict) -> dict:
         token for t in skill_tags for token in _tokens(t)}
 
     keywords = _jd_terms_for(job, skill_vocab)
-    jd_hits = [k for k in keywords if match_key(k) in cv_keys]
-    jd_misses = [k for k in keywords if match_key(k) not in cv_keys]
+    # "Vue.js ou React" is one demand: either side covers it, so a JD that
+    # offers a choice must not read as several unmet requirements.
+    alts = alternative_keys(job.description)
+    jd_hits, jd_misses = _cover_demands(keywords, alts, cv_keys)
+    jd_total = len(jd_hits) + len(jd_misses)
 
     body = (job.title + " " + job.description).lower()
     body_keys = {match_key(t) for t in _tokens(body)}
@@ -609,11 +636,11 @@ def explain(job: Job, cv: dict) -> dict:
     overlapped = sorted(set(job_tokens) & set(title_tokens))
     missed_title = sorted(set(job_tokens) - set(title_tokens))
 
-    jd_ratio = len(jd_hits) / len(keywords) if keywords else 0.0
+    jd_ratio = len(jd_hits) / jd_total if jd_total else 0.0
     skill_ratio = len(matched) / len(skill_tags) if skill_tags else 0.0
     title_ratio = len(overlapped) / len(job_tokens) if job_tokens else 0.0
     return {
-        "jd_covered": len(jd_hits), "jd_total": len(keywords),
+        "jd_covered": len(jd_hits), "jd_total": jd_total,
         "jd_misses": jd_misses,
         "skills_matched": len(matched), "skills_total": len(skill_tags),
         "skills_list": matched,

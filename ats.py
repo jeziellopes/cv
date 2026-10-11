@@ -739,20 +739,110 @@ def jd_keywords(text: str) -> list[str]:
     return jd_keyword_stats(text)[0]
 
 
+# A requirement phrased with "ou" ("or") is one requirement with more than one
+# acceptable answer. "Vue.js ou React" asks for a component framework; answering
+# with React satisfies it, so the alternative must not read as a second, unmet
+# demand (the operator's rule, spec 0015).
+_ALT_TERM_RE = re.compile(r"[A-Za-z][A-Za-z0-9+#.-]*")
+_ALT_RUN_RE = re.compile(
+    rf"(?:{_ALT_TERM_RE.pattern}\s*,\s*)?{_ALT_TERM_RE.pattern}"
+    rf"(?:\s*,?\s*(?:ou|or)\s*{_ALT_TERM_RE.pattern})+",
+    re.IGNORECASE)
+_ALT_SPLIT_RE = re.compile(r"\s*,\s*|\s*,?\s*(?:ou|or)\s*", re.IGNORECASE)
+_E_OU_RE = re.compile(r"\b(?:e|and)\s*/\s*(?:ou|or)\b", re.IGNORECASE)
+
+
+def jd_alternatives(text: str) -> list[list[str]]:
+    """Groups of kept keywords a JD offers as alternatives to one another.
+
+    Returns each either/or run as the keywords the JD kept, in the order it
+    wrote them. A group is returned only when every member survives the keyword
+    filter: a run with a stopword inside it ("Node ou , Typescript", "Vivência
+    com Node ou ; Typescript") is prose rather than an either/or demand, and
+    treating it as optional would silently drop a real requirement.
+
+    Recognised connectors are the ones a posting uses for alternatives:
+    "X ou Y", "X ou Y ou Z", "X, Y ou Z", "X e/ou Y", "X, Y and/or Z".
+    """
+    kept, _ = jd_keyword_stats(text)
+    kept_set = set(kept)
+    cleaned = re.sub(r"https?://\S+", " ", "\n".join(
+        line for line in (text or "").splitlines()
+        if not re.match(r"^\s*(?:apply[: ]*)?https?://", line.strip())))
+    cleaned = _E_OU_RE.sub(" ou ", _fold_accent(cleaned))
+    groups: list[list[str]] = []
+    for match in _ALT_RUN_RE.finditer(cleaned):
+        run = [t.lower().strip(".-/")
+               for t in _ALT_SPLIT_RE.split(match.group(0))]
+        if len(run) < 2 or any(term not in kept_set for term in run):
+            continue
+        groups.append(run)
+    return _merge_alternatives(groups)
+
+
+def _merge_alternatives(groups: list[list[str]]) -> list[list[str]]:
+    """Fuse runs that share a keyword, so "A ou B ou C" stays one requirement."""
+    merged: list[set[str]] = []
+    for group in groups:
+        members = set(group)
+        pool = [g for g in merged if g & members]
+        for other in pool:
+            members |= other
+        merged = [g for g in merged if not (g & members)]
+        merged.append(members)
+    return [sorted(g) for g in merged]
+
+
+def alternative_keys(text: str) -> dict[str, set[str]]:
+    """Map each keyword to the alternatives the JD allows in its place.
+
+    A member maps to the whole group including itself, so one lookup answers
+    "is this demanded term satisfiable by what the CV already claims?".
+    """
+    out: dict[str, set[str]] = {}
+    for group in jd_alternatives(text):
+        for term in group:
+            out.setdefault(term, set()).update(group)
+    return out
+
+
+def jd_demands(text: str) -> list[list[str]]:
+    """The JD's kept keywords as demands, with either/or runs kept together.
+
+    One list entry is one thing the posting asks for. A single alternative in
+    an entry means the JD named no alternative for it.
+    """
+    kept, _ = jd_keyword_stats(text)
+    alts = alternative_keys(text)
+    units: list[list[str]] = []
+    claimed: set[str] = set()
+    for keyword in kept:
+        if keyword in claimed:
+            continue
+        group = sorted(alts.get(keyword, {keyword}))
+        claimed.update(group)
+        units.append(group)
+    return units
+
+
 def score_tailoring(text: str, jd_text: str) -> tuple[Check, list[str]]:
     body = _fold_accent(norm(text).lower())
     keywords = jd_keywords(jd_text)
     if not keywords:
         return Check("tailoring.keywords", "Tailoring", "Keyword coverage", 100, "empty JD"), []
-    missing = [k for k in keywords if k not in body]
-    coverage = (len(keywords) - len(missing)) / len(keywords)
+    # Alternatives collapse to one demand: the JD asked for one of them, so
+    # holding any one covers the requirement, and only a wholly unmet group is
+    # a miss.
+    demanded = jd_demands(jd_text)
+    missing = [g for g in demanded if not any(k in body for k in g)]
+    coverage = (len(demanded) - len(missing)) / len(demanded)
     return (
         Check(
             "tailoring.keywords", "Tailoring", "Keyword coverage",
             round(100 * coverage),
-            f"{len(keywords) - len(missing)}/{len(keywords)} JD keywords present",
+            f"{len(demanded) - len(missing)}/{len(demanded)} JD demands present",
         ),
-        missing,
+        [" or ".join(g) if len(g) > 1 else g[0] for g in missing],
     )
 
 

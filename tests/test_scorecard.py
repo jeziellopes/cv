@@ -200,6 +200,44 @@ def test_tailoring_coverage_ignores_url_and_function_word_noise():
         assert noise not in ats.jd_keywords(jd), noise
 
 
+def test_alternatives_are_one_demand_and_either_side_covers_it():
+    """'Vue.js ou React' is one requirement: React alone satisfies it."""
+    jd = "Vue.js ou React e TypeScript."
+    assert ats.jd_alternatives(jd) == [["react", "vue.js"]]
+    assert ats.jd_demands(jd) == [["react", "vue.js"], ["typescript"]]
+
+    check, missing = ats.score_tailoring(
+        "Desenvolvimento com React e TypeScript.", jd)
+    assert missing == []
+    assert check.score == 100
+
+    # Without either alternative the demand is still unmet, and it is reported
+    # once, naming the choice the posting left open.
+    check, missing = ats.score_tailoring("TypeScript.", jd)
+    assert missing == ["react or vue.js"]
+    assert check.score == 50
+
+
+def test_alternatives_span_lists_and_slash_connectors():
+    assert ats.jd_alternatives("Node.js ou Typescript ou Python") == [
+        ["node.js", "python", "typescript"]]
+    assert ats.jd_alternatives("AWS, Azure ou GCP") == [
+        ["aws", "azure", "gcp"]]
+    assert ats.jd_alternatives("Windows e/ou Linux") == [["linux", "windows"]]
+    assert ats.jd_alternatives("REST, GraphQL and/or gRPC") == [
+        ["graphql", "grpc", "rest"]]
+
+
+def test_a_broken_alternative_run_stays_separate_demands():
+    """Prose around a connector must not quietly drop a real requirement."""
+    broken = ("JavaScript, Node ou , Typescript",
+              "Vivência com Node ou ; Typescript")
+    for jd, expected in zip(broken, (["javascript", "node", "typescript"],
+                                     ["node", "typescript"])):
+        assert ats.jd_alternatives(jd) == []
+        assert [d[0] for d in ats.jd_demands(jd)] == expected
+
+
 def test_scorecard_is_deterministic_and_json_stable(good_pdf, mock_extraction):
     report_one = ats.run_checks(good_pdf, cv=GOOD_CV)
     report_two = ats.run_checks(good_pdf, cv=GOOD_CV)

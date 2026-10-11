@@ -1145,9 +1145,17 @@ def fit_report(slug: str, lang: str = "en",
     for tag in matched:
         covered_keys |= {skills.match_key(t) for t in re.findall(
             r"[a-z0-9+#.-]+", ats._fold_accent(tag.lower())) if len(t) >= 2}
+    # The JD may name several acceptable answers to one requirement
+    # ("Vue.js ou React"). Answering with any one of them satisfies it, so the
+    # alternatives the CV does not name are not gaps to close (spec 0015).
+    alts = ats.alternative_keys(body)
+    answered = {term for group in alts.values()
+                if any(skills.match_key(k) in covered_keys for k in group)
+                for term in group}
     uncovered = [{"term": term, "status": _term_status(term)}
                  for term in sorted({k for k in kept
-                                     if skills.match_key(k) not in covered_keys})]
+                                     if skills.match_key(k) not in covered_keys
+                                     and k not in answered})]
     return {
         "slug": slug,
         "lang": lang,

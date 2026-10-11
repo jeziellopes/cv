@@ -434,6 +434,24 @@ def test_fit_report_matches_the_kept_set_against_curated_tags(tmp_path, monkeypa
         assert u["status"] in {"soft", "allowed", "evidenced", "needs an answer"}
 
 
+def test_fit_does_not_demand_the_alternative_the_cv_answersed(tmp_path, monkeypatch):
+    """Spec 0015: 'Vue.js ou React' is one demand; React in the CV closes it."""
+    monkeypatch.setattr(inbox, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(inbox, "LEDGER", tmp_path / "inbox.json")
+    (tmp_path / "cv.json").write_text(json.dumps({
+        "skills": [{"group": "g", "tags": ["React", "Jest", "TypeScript"]}],
+    }), encoding="utf-8")
+    inbox.save_capture(dict(
+        DAMAGED,
+        description="Experiência com Vue.js ou React; testes com pytest ou "
+                    "JEST; TypeScript."), tmp_path)
+    report = inbox.fit_report("acme", "en", tmp_path)
+    uncovered = [u["term"] for u in report["uncovered"]]
+    assert "vue.js" not in uncovered
+    assert "pytest" not in uncovered
+    assert "React" in report["matched"] and "Jest" in report["matched"]
+
+
 def test_fit_report_is_none_for_an_unknown_slug(tmp_path, monkeypatch):
     monkeypatch.setattr(inbox, "LEDGER", tmp_path / "inbox.json")
     assert inbox.fit_report("nope", "en", tmp_path) is None

@@ -233,6 +233,27 @@ def test_explain_reports_the_three_components_behind_a_fit(cv):
                + 0.2 * exp["ratios"]["title"] - exp["fit"] / 100) < 0.01
 
 
+def test_explain_credits_either_side_of_an_alternative(cv):
+    """A JD that says 'React ou Vue.js' is satisfied by React alone."""
+    job = searchmod.Job(
+        title="Software Engineer", company="Acme", location="Remote", url="",
+        description="Requisitos: React ou Vue.js e TypeScript.",
+        source="x")
+    exp = searchmod.explain(job, cv)
+    assert exp["jd_misses"] == []
+    assert exp["jd_covered"] == exp["jd_total"] == 2
+    assert exp["ratios"]["jd"] == 1.0
+    assert searchmod.rank([job], cv)[0].fit == exp["fit"]
+
+    unmet = searchmod.Job(
+        title="Software Engineer", company="Acme", location="Remote", url="",
+        description="Requisitos: React ou Vue.js e Kubernetes.",
+        source="x")
+    exp = searchmod.explain(unmet, cv)
+    assert exp["jd_misses"] == ["kubernetes"]
+    assert exp["jd_total"] == 2
+
+
 def test_slugify():
     assert searchmod.slugify("Acme Corp") == "acme-corp"
     assert searchmod.slugify(" Loft! ") == "loft"
