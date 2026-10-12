@@ -905,7 +905,7 @@ def stale(
 
     for s in found:
         company = None if s.cv_path.parent == BASE_DIR else s.label
-        if company and s.pdf_path.exists() and _was_applied(s.cv_path.parent.name):
+        if company and s.pdf_path.exists() and _was_applied(s.label):
             backup = staleness.backup_pdf(s.pdf_path)
             typer.echo(f"  backed up sent copy: {backup.relative_to(BASE_DIR)}")
         typer.echo(f"  rebuilding {s.label} ({s.lang})")
