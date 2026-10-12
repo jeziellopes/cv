@@ -163,12 +163,13 @@ def test_tailoring_coverage_scales_down_for_missing_keywords():
 
 
 def test_jd_keywords_strip_url_lines():
-    jd = ("TypeScript\n"
+    jd = ("Vaga: TypeScript\n"
           "https://sttartpay.inhire.app/vagas/cf7c725a?source=linkedin\n"
           "Node.js")
     keywords = ats.jd_keywords(jd)
-    for noise in ("vagas", "source", "linkedin", "inhire", "sttartpay", "cf7c725a"):
-        assert noise not in keywords, f"{noise!r} is a URL fragment"
+    for noise in ("vagas", "source", "linkedin", "inhire", "sttartpay", "cf7c725a",
+                  "vaga"):
+        assert noise not in keywords, f"{noise!r} is a URL fragment or a label"
     assert "typescript" in keywords
     assert "node.js" in keywords
 
@@ -179,11 +180,28 @@ def test_jd_keyword_stats_splits_total_from_kept():
         "Precisamos de TypeScript, Node.js e vivência em meios de pagamento."
     )
     kept, total = ats.jd_keyword_stats(jd)
-    for noise in ("precisamos", "pessoa", "uma", "de", "em", "vivencia"):
+    for noise in ("precisamos", "pessoa", "uma", "de", "em", "meios",
+                  "pagamento"):
         assert noise not in kept, noise
     assert "typescript" in kept and "node.js" in kept
-    assert "meios" in kept and "pagamento" in kept
     assert total > len(kept), "function words still count in the pre-filter total"
+
+
+def test_sentence_openers_and_labels_are_not_demands():
+    """A capitalised first word and a section label are prose (ADR 0012)."""
+    jd = ("Desired Skills\n"
+          "Vivência com metodologias ágeis (SCRUM);\n"
+          "Requisitos: Python e PostgreSQL.")
+    assert ats.jd_keywords(jd) == ["scrum", "python", "postgresql"]
+
+
+def test_a_jd_the_filter_cannot_read_is_not_a_free_pass():
+    """Coverage nobody measured must not report as 100 (ADR 0012)."""
+    jd = "we are looking for someone to join the team soon"
+    check, missing = ats.score_tailoring("Python and React.", jd)
+    assert check.score == 0
+    assert "no demand found" in check.detail
+    assert ats.score_tailoring("Python and React.", "")[0].score == 100
 
 
 def test_tailoring_coverage_ignores_url_and_function_word_noise():
@@ -230,10 +248,8 @@ def test_alternatives_span_lists_and_slash_connectors():
 
 def test_a_broken_alternative_run_stays_separate_demands():
     """Prose around a connector must not quietly drop a real requirement."""
-    broken = ("JavaScript, Node ou , Typescript",
-              "Vivência com Node ou ; Typescript")
-    for jd, expected in zip(broken, (["javascript", "node", "typescript"],
-                                     ["node", "typescript"])):
+    for jd, expected in (("Vivência com Node ou , React", ["node", "react"]),
+                          ("Vivência com Node ou ; React", ["node"])):
         assert ats.jd_alternatives(jd) == []
         assert [d[0] for d in ats.jd_demands(jd)] == expected
 

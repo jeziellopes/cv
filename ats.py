@@ -703,41 +703,10 @@ def score_leadership(cv: Optional[dict]) -> Check:
 
 # ---- tailoring ----------------------------------------------
 
-def jd_keyword_stats(text: str) -> tuple[list[str], int]:
-    """The JD's kept keywords and the pre-filter token count.
-
-    The pre-filter count counts distinct content tokens after the trivial drops
-    (length, duplicates, digits, domains) and before the stopword filter, so
-    the filter's own effect is visible. One implementation backs jd_keywords,
-    ats coverage and cv fit, so they cannot disagree on what a keyword is.
-    """
-    text = "\n".join(
-        line for line in (text or "").splitlines()
-        if not re.match(r"^\s*(?:apply[: ]*)?https?://", line.strip())
-    )
-    text = re.sub(r"https?://\S+", " ", text)
-    seen: set[str] = set()
-    kept: list[str] = []
-    kept_seen: set[str] = set()
-    total = 0
-    for token in WORD_RE.findall(_fold_accent(text or "")):
-        low = _fold_accent(token.lower()).strip(".-/")
-        if len(low) < 2 or low in seen:
-            continue
-        if any(ch.isdigit() for ch in low) or _looks_like_domain(low):
-            continue
-        seen.add(low)
-        total += 1
-        if low in _JD_STOP or low in kept_seen:
-            continue
-        kept_seen.add(low)
-        kept.append(low)
-    return kept, total
-
-
-def jd_keywords(text: str) -> list[str]:
-    return jd_keyword_stats(text)[0]
-
+# "c#", "c++", "node.js", "ci/cd", "es6+", ".net": punctuation only a technical
+# term carries.
+_TECH_PUNCT_RE = re.compile(r"[.#+/]")
+_ACRONYM_RE = re.compile(r"[A-Z]{2,}")
 
 # A requirement phrased with "ou" ("or") is one requirement with more than one
 # acceptable answer. "Vue.js ou React" asks for a component framework; answering
@@ -751,32 +720,159 @@ _ALT_RUN_RE = re.compile(
 _ALT_SPLIT_RE = re.compile(r"\s*,\s*|\s*,?\s*(?:ou|or)\s*", re.IGNORECASE)
 _E_OU_RE = re.compile(r"\b(?:e|and)\s*/\s*(?:ou|or)\b", re.IGNORECASE)
 
+# A token boundary that ends a sentence, a clause or a list item. A colon is
+# deliberately absent: "Conhecimento: Python" labels a demand, it does not start
+# a sentence, so the capital after it still reads as a proper noun.
+_SENTENCE_END_CHARS = frozenset(".!?;\n•-*–—")
+_JD_TERM_RE = re.compile(r"[A-Za-z][A-Za-z0-9+#./-]*")
+
+
+def _names_something(raw: str, is_name: bool) -> bool:
+    """Whether a JD token names a technology rather than prose."""
+    # Trailing sentence punctuation is not tech punctuation: "pagamento." ends a
+    # sentence, "node.js" names one.
+    bare = raw.rstrip(".-/")
+    if _TECH_PUNCT_RE.search(bare):
+        return True
+    if _ACRONYM_RE.fullmatch(bare):
+        return True
+    return is_name
+
+
+def _opens_sentence(text: str, start: int) -> bool:
+    """Whether the token at `start` opens a sentence, list item or bullet.
+
+    Whitespace is skipped when looking back for the character that ended the
+    previous thought, but a newline is itself the break: a JD written as one
+    item per line gives every line its own first word.
+    """
+    index = start - 1
+    while index >= 0 and text[index] in " \t\r":
+        index -= 1
+    return index < 0 or text[index] in _SENTENCE_END_CHARS
+
+
+def _jd_tokens(text: str) -> list[tuple[str, bool]]:
+    """The JD's tokens with original case, each flagged as a probable name.
+
+    Case is what separates a proper noun from a capitalised first word, so the
+    tokenizer keeps it and hands the filter both facts. A capitalised word is a
+    name when it sits inside a sentence: every language capitalises the first
+    word, and reading that as a proper noun is what let "Em", "Vivência" and
+    "Desired Skills" through as demands. A word that owns the colon is a label
+    ("Requisitos:", "Desired Skills:"), never a demand either. The slash belongs
+    in the term so "ci/cd" stays one token instead of two meaningless halves.
+    """
+    folded = _fold_accent(text or "")
+    out: list[tuple[str, bool]] = []
+    for match in _JD_TERM_RE.finditer(folded):
+        raw = match.group(0)
+        capitalised = raw[:1].isupper()
+        labels = folded[match.end():].lstrip().startswith(":")
+        name = capitalised and not _opens_sentence(folded, match.start()) \
+            and not labels
+        out.append((raw, name))
+    return out
+
+
+def _run_terms(text: str) -> set[str]:
+    """The terms of every either/or run, folded to lower case.
+
+    "pytest ou JEST" names two technologies even though the posting wrote one
+    in lower case, and shape alone would drop it. A sibling the filter already
+    reads as a name is what says the run is technologies (ADR 0012).
+    """
+    out: set[str] = set()
+    for terms in _alt_runs(text):
+        if any(_names_something(t, t[:1].isupper()) for t in terms):
+            out.update(t.lower() for t in terms)
+    return out
+
+
+def jd_keyword_stats(text: str) -> tuple[list[str], int]:
+    """The JD's kept keywords and the pre-filter token count.
+
+    The pre-filter count counts distinct content tokens after the trivial drops
+    (length, duplicates, digits, domains) and before the keyword filter, so the
+    filter's own effect is visible. One implementation backs jd_keywords,
+    ats coverage, cv fit and search, so they cannot disagree on what a keyword
+    is (spec 0016).
+
+    A kept keyword is a demand: it names something buildable (ADR 0012). It
+    qualifies by tech punctuation ("node.js", "c#", "ci/cd", "es6+"), by being
+    written as a proper noun or acronym away from the start of a sentence
+    ("Python", "Kubernetes", "API"), or by sitting in an either/or run beside
+    such a name ("pytest ou JEST"). Capitalisation only counts in that second
+    position, because every language capitalises a sentence's first word and
+    reading that as a proper noun is what let "Vivência" and "Conhecimento"
+    through as demands.
+    """
+    text = "\n".join(
+        line for line in (text or "").splitlines()
+        if not re.match(r"^\s*(?:apply[: ]*)?https?://", line.strip())
+    )
+    text = re.sub(r"https?://\S+", " ", text)
+    named_by_run = _run_terms(text)
+    seen: set[str] = set()
+    kept: list[str] = []
+    kept_seen: set[str] = set()
+    total = 0
+    for raw, is_name in _jd_tokens(text):
+        low = _fold_accent(raw.lower()).strip(".-/")
+        if len(low) < 2 or low in seen:
+            continue
+        if any(ch.isdigit() for ch in low) or _looks_like_domain(low):
+            continue
+        seen.add(low)
+        total += 1
+        if low in _JD_STOP or low in kept_seen:
+            continue
+        if not (_names_something(raw, is_name) or low in named_by_run):
+            continue
+        kept_seen.add(low)
+        kept.append(low)
+    return kept, total
+
+
+def jd_keywords(text: str) -> list[str]:
+    return jd_keyword_stats(text)[0]
+
+
+def _alt_runs(text: str) -> list[list[str]]:
+    """Every either/or run in the JD, split into its terms as written."""
+    cleaned = re.sub(r"https?://\S+", " ", "\n".join(
+        line for line in (text or "").splitlines()
+        if not re.match(r"^\s*(?:apply[: ]*)?https?://", line.strip())))
+    cleaned = _E_OU_RE.sub(" ou ", _fold_accent(cleaned))
+    return [[t.strip(".-/") for t in _ALT_SPLIT_RE.split(match.group(0))]
+            for match in _ALT_RUN_RE.finditer(cleaned)]
+
 
 def jd_alternatives(text: str) -> list[list[str]]:
     """Groups of kept keywords a JD offers as alternatives to one another.
 
-    Returns each either/or run as the keywords the JD kept, in the order it
-    wrote them. A group is returned only when every member survives the keyword
-    filter: a run with a stopword inside it ("Node ou , Typescript", "Vivência
-    com Node ou ; Typescript") is prose rather than an either/or demand, and
-    treating it as optional would silently drop a real requirement.
+    A requirement phrased with "ou" ("or") is one requirement with more than
+    one acceptable answer: "Vue.js ou React" asks for a component framework,
+    and answering with React satisfies it, so the alternative must not read as
+    a second, unmet demand (spec 0015).
+
+    Returns each run as the keywords the JD kept, in the order it wrote them. A
+    run is returned only when every member survives the keyword filter: a run
+    with a stopword inside it ("Node ou , Typescript", "Vivência com Node ou ;
+    Typescript") is prose rather than an either/or demand, and treating it as
+    optional would silently drop a real requirement.
 
     Recognised connectors are the ones a posting uses for alternatives:
     "X ou Y", "X ou Y ou Z", "X, Y ou Z", "X e/ou Y", "X, Y and/or Z".
     """
     kept, _ = jd_keyword_stats(text)
     kept_set = set(kept)
-    cleaned = re.sub(r"https?://\S+", " ", "\n".join(
-        line for line in (text or "").splitlines()
-        if not re.match(r"^\s*(?:apply[: ]*)?https?://", line.strip())))
-    cleaned = _E_OU_RE.sub(" ou ", _fold_accent(cleaned))
     groups: list[list[str]] = []
-    for match in _ALT_RUN_RE.finditer(cleaned):
-        run = [t.lower().strip(".-/")
-               for t in _ALT_SPLIT_RE.split(match.group(0))]
-        if len(run) < 2 or any(term not in kept_set for term in run):
+    for run in _alt_runs(text):
+        terms = [term.lower() for term in run]
+        if len(terms) < 2 or any(term not in kept_set for term in terms):
             continue
-        groups.append(run)
+        groups.append(terms)
     return _merge_alternatives(groups)
 
 
@@ -829,6 +925,12 @@ def score_tailoring(text: str, jd_text: str) -> tuple[Check, list[str]]:
     body = _fold_accent(norm(text).lower())
     keywords = jd_keywords(jd_text)
     if not keywords:
+        # A JD the filter cannot read a single demand from is not a free pass:
+        # reporting 100 would claim coverage nobody measured.
+        total = jd_keyword_stats(jd_text)[1]
+        if total:
+            return Check("tailoring.keywords", "Tailoring", "Keyword coverage",
+                         0, f"no demand found in {total} JD words"), []
         return Check("tailoring.keywords", "Tailoring", "Keyword coverage", 100, "empty JD"), []
     # Alternatives collapse to one demand: the JD asked for one of them, so
     # holding any one covers the requirement, and only a wholly unmet group is

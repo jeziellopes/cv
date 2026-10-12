@@ -163,10 +163,8 @@ def test_programathor_filters_by_query(mock_transport):
 
 
 def test_jd_terms_drop_portuguese_boilerplate(cv):
-    skill_vocab = {"react", "docker", "typescript"}
     terms = searchmod._jd_terms(
-        "Desenvolvedor React Sênior com experiência em Docker e TypeScript.", skill_vocab
-    )
+        "Desenvolvedor React Sênior com experiência em Docker e TypeScript.")
     assert "react" in terms
     assert "docker" in terms
     assert "typescript" in terms

@@ -19,7 +19,13 @@ import html as _html
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ats import JD_STOPWORDS, _JD_STOP, _fold_accent, _looks_like_domain, alternative_keys
+from ats import (
+    JD_STOPWORDS,
+    _JD_STOP,
+    _fold_accent,
+    alternative_keys,
+    jd_keyword_stats,
+)
 from skills import match_key
 
 # Title overlap uses a small, dedicated stop set, never the full JD stop list:
@@ -444,47 +450,26 @@ def _is_generic(token: str) -> bool:
     return _fold(token) in JD_STOPWORDS or _fold(token) in _PT_BOILERPLATE
 
 
-def _jd_terms(text: str, skill_vocab: set[str]) -> list[str]:
-    """Distinctive terms in a JD: tokens that are capitalized, carry tech
-    punctuation (node.js, ci/cd, es6+), or name a CV skill. Generic prose is
-    ignored, so coverage reflects real tech overlap, not description length.
+def _jd_terms(text: str) -> list[str]:
+    """The JD's demands, from the one filter `ats` owns (spec 0016).
 
-    URL lines from a captured JD's own header are not content: their slugs
-    ("vagas", a company name) must never read as missing terms.
+    search used to keep a second, looser rule of its own, which is why
+    `cv inbox score` and `cv fit` read the same posting differently. The shared
+    filter decides what a demand is (ADR 0012); all that is left here is
+    emitting a slash-joined demand by its parts, so "ux/ui" meets "UX
+    Principles" in the CV's own tokenizer.
     """
-    if text:
-        text = re.sub(r"https?://\S+", " ", _fold_accent("\n".join(
-            line for line in text.splitlines()
-            if not re.match(r"^\s*(?:apply[: ]*)?https?://", line.strip())
-        )))
     out: list[str] = []
-    slashed: list[str] = []
     seen: set[str] = set()
-    for m in re.finditer(r"[A-Za-z][A-Za-z0-9+#./-]*", text or ""):
-        raw = m.group(0).rstrip(".")
-        low = _fold(raw).lower()
-        if len(low) < 3 or _is_generic(low) or low in seen:
+    for term in jd_keyword_stats(text)[0]:
+        if "/" in term:
+            for part in term.split("/"):
+                if len(part) >= 2 and part not in seen and part not in _JD_STOP:
+                    seen.add(part)
+                    out.append(part)
             continue
-        if any(ch.isdigit() for ch in low) or _looks_like_domain(low):
-            continue
-        if raw[0].isupper() or "." in raw or "+" in raw or "#" in raw or low in skill_vocab:
-            if "/" in raw:
-                # A slash-joined term ("ux/ui") splits in the CV's own tokenizer,
-                # so it is kept by its parts, never by the joined form.
-                slashed.append(raw)
-                continue
-            seen.add(low)
-            out.append(low)
-    # Emit the parts honorably stopworded, so "ux/ui" meets "UX Principles".
-    for raw in slashed:
-        for part in raw.split("/"):
-            p = _fold(part.strip()).lower()
-            if len(p) < 2 or p in seen or p in _JD_STOP or _is_generic(p):
-                continue
-            if any(ch.isdigit() for ch in p) or _looks_like_domain(p):
-                continue
-            seen.add(p)
-            out.append(p)
+        seen.add(term)
+        out.append(term)
     return out
 
 
@@ -498,9 +483,9 @@ def _overlap_tokens(text: str) -> set[str]:
     return out
 
 
-def _jd_terms_for(job: "Job", skill_vocab: set[str]) -> list[str]:
-    """Distinctive JD terms, minus the posting's own company name."""
-    terms = _jd_terms(job.description, skill_vocab)
+def _jd_terms_for(job: "Job") -> list[str]:
+    """The JD's demands, minus the posting's own company name."""
+    terms = _jd_terms(job.description)
     company = str(job.company or "")
     stops = {t for t in _tokens(company) if len(t) >= 2}
     compact = _fold_accent(company.lower().replace(" ", "").strip())
@@ -532,14 +517,11 @@ def rank(jobs: list[Job], cv: dict, query: str = "") -> list[Ranked]:
         cv.get("personal", {}).get("title", ""))
         if len(t) >= 2 and t not in _TITLE_STOP}
     skill_tags = [t for g in cv.get("skills", []) for t in g.get("tags", [])]
-    skill_vocab = {t.lower() for t in skill_tags} | {
-        token for t in skill_tags for token in _tokens(t)
-    }
     query_tokens = [t for t in _overlap_tokens(query) if len(t) >= 2 and t not in _QUERY_STOPWORDS]
 
     ranked = []
     for job in jobs:
-        keywords = _jd_terms_for(job, skill_vocab)
+        keywords = _jd_terms_for(job)
         alts = alternative_keys(job.description)
         jd_hits, jd_misses = _cover_demands(keywords, alts, cv_keys)
         jd_coverage = len(jd_hits) / (len(jd_hits) + len(jd_misses)) \
@@ -616,10 +598,8 @@ def explain(job: Job, cv: dict) -> dict:
         cv.get("personal", {}).get("title", ""))
         if len(t) >= 2 and t not in _TITLE_STOP}
     skill_tags = [t for g in cv.get("skills", []) for t in g.get("tags", [])]
-    skill_vocab = {t.lower() for t in skill_tags} | {
-        token for t in skill_tags for token in _tokens(t)}
 
-    keywords = _jd_terms_for(job, skill_vocab)
+    keywords = _jd_terms_for(job)
     # "Vue.js ou React" is one demand: either side covers it, so a JD that
     # offers a choice must not read as several unmet requirements.
     alts = alternative_keys(job.description)
