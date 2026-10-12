@@ -217,6 +217,16 @@ def test_role_contract_and_parent_company_words_are_not_demands():
     assert missing == []
 
 
+def test_agency_and_brand_words_are_not_demands():
+    """ADR 0012: Cannes Lions, Adweek, Gartner and 'creative' name a shop's
+    marketing, never a technology a developer builds."""
+    jd = ("We are an award-winning creative agency, a Cannes Lions and Adweek "
+          "contender named a Gartner leader. The stack is TypeScript, React "
+          "and NestJS over Postgres with Kubernetes and Helm.")
+    assert set(ats.jd_keywords(jd)) == {
+        "typescript", "react", "nestjs", "postgres", "kubernetes", "helm"}
+
+
 def test_tailoring_coverage_ignores_url_and_function_word_noise():
     text = "TypeScript, Node.js e meios de pagamento com Stripe."
     jd = (

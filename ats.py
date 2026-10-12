@@ -106,6 +106,11 @@ JD_STOPWORDS = STOPWORDS | set(
     engineer engineers engineering software era either clt brl usd salary
     salaries compensation contract hiring hire senior junior midlevel lead
     hotmart fullstack full-stack remote
+    agency agencies adexchanger adweek artificial award awards brazil
+    breakthrough business cannes contender creative digital excellence
+    forrester fwas gartner global google group human-machine intelligence
+    interaction lions magic manager marketing microsoft monks pioneer players
+    power programmatic quadranttm solution top linkedin
     """.split()
 ) | set(
     """
