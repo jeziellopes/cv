@@ -800,6 +800,41 @@
       "repo.",
       "repositorypattern"
     ],
+    "strategy pattern": [
+      "strategy pattern",
+      "strategies",
+      "strategycontext",
+      ".strategy"
+    ],
+    "builder pattern": [
+      "builder pattern",
+      "criteriabuilder",
+      ".builder",
+      "builder()"
+    ],
+    "criteria pattern": [
+      "criteria pattern",
+      "criteriabuilder",
+      "criteriaquery",
+      ".criteria"
+    ],
+    "dependency injection": [
+      "injectable",
+      "@inject",
+      "container.resolve",
+      "dependency injection"
+    ],
+    "template method": [
+      "template method",
+      "abstract",
+      "hookmethod"
+    ],
+    "observer pattern": [
+      "listener",
+      "@onevent",
+      "emitter",
+      "subscriber"
+    ],
     "regressões": [
       "regression",
       "snapshot",
