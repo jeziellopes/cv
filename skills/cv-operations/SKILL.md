@@ -17,8 +17,13 @@ reason it exists, learned the hard way in one working session.
 
 A skill is claimable only where the lines the operator's commits added prove
 it. A needle sitting in a teammate's line, or in a file the operator merely
-touched, is not evidence. The scanner reads `git log --author=<author set> -p`
-and keeps the `+` hunks, so a whole-file match reads as nothing.
+touched, is not evidence. The scanner reads `git log --all --author=<author
+set> -p` and keeps the `+` hunks, so a whole-file match reads as nothing.
+
+The walk crosses every branch, not just the checked-out one. Work the operator
+finished on a feature branch is theirs whether or not it was merged, and a
+HEAD-only walk reads a whole branch of contribution, a Criteria builder or a
+Strategy pattern, as if it never happened.
 
 Author attribution is by identity, not display name. Commits carry different
 names across employers but a stable email, so the author set in `skills.json`

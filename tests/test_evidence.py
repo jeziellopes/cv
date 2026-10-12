@@ -89,6 +89,38 @@ def test_authored_additions_carry_only_the_authors_lines(tmp_path):
         "B's added line must not read as A's contribution"
 
 
+def test_authored_additions_reach_unmerged_branches(tmp_path):
+    """Work finished on a feature branch is the author's evidence even when it
+    was never merged, so the walk must cross branches, not just HEAD."""
+    import subprocess
+
+    repo = tmp_path / "proj"
+    repo.mkdir()
+
+    def git(*args):
+        return subprocess.run(["git", "-C", str(repo), *args],
+                              capture_output=True, text=True).stdout
+
+    git("init", "-q")
+    git("config", "user.name", "Author A")
+    git("config", "user.email", "a@example.com")
+    (repo / "app.py").write_text("import react\n")
+    git("add", "-A")
+    git("commit", "-q", "-m", "a")
+    base = git("rev-parse", "--abbrev-ref", "HEAD").strip()
+
+    git("checkout", "-q", "-b", "feature/criteria")
+    with (repo / "app.py").open("a") as f:
+        f.write("class CriteriaBuilder\n")
+    git("add", "-A")
+    git("commit", "-q", "-m", "criteria")
+    git("checkout", "-q", base)
+
+    additions = evidence.authored_additions(repo, "author a", ("*.py",))
+    assert "class CriteriaBuilder" in additions, \
+        "a branch-only line must still count as the author's evidence"
+
+
 def test_resolve_roots_expands_given_paths():
     roots = evidence.resolve_roots(["~/lab"])
     assert len(roots) == 1 and roots[0].name == "lab"

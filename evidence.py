@@ -92,10 +92,14 @@ def default_author() -> str:
 def authored_files(repo: Path, suffixes=SUFFIXES, author: str = "") -> list[str]:
     """Files the author committed and that still exist.
 
-    The author match is case-insensitive because git's --author is not, and a
-    single spelling silently skips every repo committed under another casing.
+    The walk is over every branch, not just the checked-out one: work an author
+    finished on a feature branch is theirs whether or not it was merged, and a
+    HEAD-only walk reads a whole branch of contribution as if it never
+    happened. The author match is case-insensitive because git's --author is
+    not, and a single spelling silently skips every repo committed under
+    another casing.
     """
-    args = ["log", "--name-only", "--pretty=format:"]
+    args = ["log", "--all", "--name-only", "--pretty=format:"]
     if author:
         args[1:1] = [f"--author={author}", "-i"]
     out = git(repo, *args, "--", *suffixes)
@@ -115,11 +119,12 @@ def authored_additions(repo: Path, author: str = "", suffixes=SUFFIXES,
                        cap: int = MAX_ADDED_BYTES) -> str:
     """The lines the author's commits added, joined into one corpus.
 
-    `git log --author ... -p` prints the full diff of each of the author's
-    commits, so a needle found here is a line the author actually wrote. `+`
-    hunks only, source paths only; empty when the author added nothing.
+    `git log --all --author ... -p` prints the full diff of each of the
+    author's commits across every branch, so a needle found here is a line the
+    author actually wrote, merged or not. `+` hunks only, source paths only;
+    empty when the author added nothing.
     """
-    args = ["log", "-p", "--no-merges", "--pretty=format:"]
+    args = ["log", "--all", "-p", "--no-merges", "--pretty=format:"]
     if author:
         args[1:1] = [f"--author={author}", "-i"]
     out = git(repo, *args, "--", *suffixes)
