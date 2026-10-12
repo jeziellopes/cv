@@ -49,22 +49,6 @@ def test_a_fresh_build_is_not_stale(tmp_path):
     assert staleness.find_stale(tmp_path) == []
 
 
-def test_was_applied_reads_the_ledger_status(tmp_path, monkeypatch):
-    """Only an applied capture earns a sent backup; the rest rebuild in place."""
-    import generate
-    import inbox
-
-    ledger = tmp_path / "inbox.json"
-    ledger.write_text(json.dumps([
-        {"slug": "acme", "status": "applied"},
-        {"slug": "other", "status": "new"},
-    ]))
-    monkeypatch.setattr(inbox, "LEDGER", ledger)
-    assert generate._was_applied("acme") is True
-    assert generate._was_applied("other") is False
-    assert generate._was_applied("absent") is False
-
-
 def test_backup_pdf_copies_a_sent_cv_beside_it(tmp_path):
     """A rebuild overwrites the submitted file, so the sent copy is preserved."""
     folder = tmp_path / "companies" / "acme"

@@ -113,12 +113,13 @@ def stem_of(cv_path: Path) -> str:
 
 
 def backup_pdf(pdf_path: Path, when: Optional[str] = None) -> Path:
-    """Copy a sent PDF aside before a rebuild overwrites it.
+    """Copy a company CV's PDF aside before a rebuild overwrites it.
 
-    A stale rebuild replaces the exact file that was submitted, so the archive
-    of what was actually sent lives in a `sent/` folder beside it, named for
-    the moment. The copy never leaves the company folder, so it is gitignored
-    with the rest of `companies/`.
+    A stale rebuild replaces the exact file that may have been submitted, and
+    the ledger cannot know every CV that was sent: applications made before the
+    ledger existed, or never captured, carry no applied status. So every company
+    PDF is preserved, not only the recorded ones. The copy lives in a `sent/`
+    folder beside it, so it is gitignored with the rest of `companies/`.
     """
     stamp = when or datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     out_dir = pdf_path.parent / "sent"
