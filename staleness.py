@@ -21,8 +21,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 # The code that renders a PDF.
 RENDER_FILES = ("generate.py", "staleness.py")
@@ -107,6 +110,22 @@ def stem_of(cv_path: Path) -> str:
     folded = "".join(c for c in unicodedata.normalize("NFKD", name)
                      if not unicodedata.combining(c))
     return "".join(folded.split()) or "cv"
+
+
+def backup_pdf(pdf_path: Path, when: Optional[str] = None) -> Path:
+    """Copy a sent PDF aside before a rebuild overwrites it.
+
+    A stale rebuild replaces the exact file that was submitted, so the archive
+    of what was actually sent lives in a `sent/` folder beside it, named for
+    the moment. The copy never leaves the company folder, so it is gitignored
+    with the rest of `companies/`.
+    """
+    stamp = when or datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    out_dir = pdf_path.parent / "sent"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out = out_dir / f"{pdf_path.stem}-{stamp}{pdf_path.suffix}"
+    shutil.copy2(pdf_path, out)
+    return out
 
 
 def label_of(cv_path: Path, root: Path) -> str:

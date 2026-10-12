@@ -49,6 +49,45 @@ def test_a_fresh_build_is_not_stale(tmp_path):
     assert staleness.find_stale(tmp_path) == []
 
 
+def test_was_applied_reads_the_ledger_status(tmp_path, monkeypatch):
+    """Only an applied capture earns a sent backup; the rest rebuild in place."""
+    import generate
+    import inbox
+
+    ledger = tmp_path / "inbox.json"
+    ledger.write_text(json.dumps([
+        {"slug": "acme", "status": "applied"},
+        {"slug": "other", "status": "new"},
+    ]))
+    monkeypatch.setattr(inbox, "LEDGER", ledger)
+    assert generate._was_applied("acme") is True
+    assert generate._was_applied("other") is False
+    assert generate._was_applied("absent") is False
+
+
+def test_backup_pdf_copies_a_sent_cv_beside_it(tmp_path):
+    """A rebuild overwrites the submitted file, so the sent copy is preserved."""
+    folder = tmp_path / "companies" / "acme"
+    make_cv(folder, "Ada Lovelace")
+    pdf = make_pdf(folder, "Ada Lovelace")
+    backup = staleness.backup_pdf(pdf, when="20261012-193000")
+    assert backup.is_file()
+    assert backup.read_bytes() == pdf.read_bytes()
+    assert backup.parent.name == "sent"
+    assert backup.name == "Ada Lovelace-en-20261012-193000.pdf"
+    assert pdf.is_file(), "the original stays until the rebuild replaces it"
+
+
+def test_backup_pdf_names_each_send_apart(tmp_path):
+    """Two sends of one CV must not collide in the archive."""
+    folder = tmp_path / "companies" / "acme"
+    make_cv(folder, "Ada Lovelace")
+    pdf = make_pdf(folder, "Ada Lovelace")
+    first = staleness.backup_pdf(pdf, when="20261012-100000")
+    second = staleness.backup_pdf(pdf, when="20261012-110000")
+    assert first != second and first.is_file() and second.is_file()
+
+
 def test_changed_cv_data_is_stale(tmp_path):
     cv = build(tmp_path)
     data = json.loads(cv.read_text())

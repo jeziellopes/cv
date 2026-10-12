@@ -862,6 +862,19 @@ def status() -> None:
 
 
 @app.command()
+def _was_applied(slug: str) -> bool:
+    """Whether the application for this capture was recorded as sent.
+
+    A sent CV is the one artifact a rebuild must not destroy silently, so the
+    fix path copies it aside first. The ledger's applied status is the trigger.
+    """
+    for entry in inbox.load_ledger():
+        if entry.get("slug") == slug and \
+                str(entry.get("status", "")).lower() == "applied":
+            return True
+    return False
+
+
 def stale(
     lang: Annotated[Optional[list[str]], typer.Option("--lang", "-l",
                                                       help="limit to a language")] = None,
@@ -892,6 +905,9 @@ def stale(
 
     for s in found:
         company = None if s.cv_path.parent == BASE_DIR else s.label
+        if company and s.pdf_path.exists() and _was_applied(s.cv_path.parent.name):
+            backup = staleness.backup_pdf(s.pdf_path)
+            typer.echo(f"  backed up sent copy: {backup.relative_to(BASE_DIR)}")
         typer.echo(f"  rebuilding {s.label} ({s.lang})")
         generate(company=company, lang=s.lang, theme=DEFAULT_THEME, pdf=True)
     typer.echo(f"rebuilt {len(found)}.")
