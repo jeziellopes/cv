@@ -204,6 +204,19 @@ def test_a_jd_the_filter_cannot_read_is_not_a_free_pass():
     assert ats.score_tailoring("Python and React.", "")[0].score == 100
 
 
+def test_role_contract_and_parent_company_words_are_not_demands():
+    """ADR 0012: 'Senior Software Engineer' and 'CLT paid in BRL' name a job,
+    not a technology, so they never read as demanded skills."""
+    jd = ("Senior Software Engineer (Fullstack). This contract is CLT and paid "
+          "in BRL. We are part of the Hotmart Company portfolio. Requirements: "
+          "JavaScript, TypeScript and React.")
+    assert ats.jd_keywords(jd) == ["javascript", "typescript", "react"]
+    check, missing = ats.score_tailoring(
+        "React, JavaScript and TypeScript for five years.", jd)
+    assert check.score == 100
+    assert missing == []
+
+
 def test_tailoring_coverage_ignores_url_and_function_word_noise():
     text = "TypeScript, Node.js e meios de pagamento com Stripe."
     jd = (

@@ -103,6 +103,9 @@ JD_STOPWORDS = STOPWORDS | set(
     ensure ensures ensuring maintain maintains maintaining improve improves
     improving drive drives driving help helps helping create creates creating
     across within using use used plus etc including include includes
+    engineer engineers engineering software era either clt brl usd salary
+    salaries compensation contract hiring hire senior junior midlevel lead
+    hotmart fullstack full-stack remote
     """.split()
 ) | set(
     """
