@@ -150,7 +150,16 @@ _JD_STOP = frozenset(_fold_accent(w) for w in JD_STOPWORDS)
 
 
 def _looks_like_domain(token: str) -> bool:
-    return "." in token and token.rsplit(".", 1)[1] in DOMAIN_TLDS
+    """Whether a token mentions a domain, however it is written in prose.
+
+    A bare "monks.com/careers" in the JD body must read as the shop's website,
+    not as a demanded term. "node.js" survives: no segment is a registered
+    top-level domain.
+    """
+    if "." not in token:
+        return False
+    segments = re.split(r"[./]", token)
+    return any(segment in DOMAIN_TLDS for segment in segments)
 
 
 # ---- extraction ---------------------------------------------

@@ -204,6 +204,14 @@ def test_a_jd_the_filter_cannot_read_is_not_a_free_pass():
     assert ats.score_tailoring("Python and React.", "")[0].score == 100
 
 
+def test_a_bare_domain_mention_is_not_a_demand():
+    """The shop's own site written without a scheme in prose is still a site."""
+    jd = ("Please note applications must go through monks.com/careers. "
+          "Requirements: Node.js and C#.")
+    assert ats.jd_keywords(jd) == ["node.js", "c#"]
+    assert "monks.com/careers" not in ats.jd_keywords(jd)
+
+
 def test_role_contract_and_parent_company_words_are_not_demands():
     """ADR 0012: 'Senior Software Engineer' and 'CLT paid in BRL' name a job,
     not a technology, so they never read as demanded skills."""
