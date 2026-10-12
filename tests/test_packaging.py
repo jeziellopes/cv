@@ -101,6 +101,21 @@ MASTER = {
 }
 
 
+def test_course_item_renders_an_optional_detail():
+    import generate
+    from conftest import GOOD_CV
+
+    with_detail = dict(GOOD_CV, courses=[
+        {"title": "6.00x: Intro to CS", "institution": "MIT",
+         "detail": "algorithms and complexity"}])
+    html = generate.build_html(with_detail, "classic")
+    assert '<span class="course-detail">algorithms and complexity</span>' in html
+
+    plain = dict(GOOD_CV, courses=[
+        {"title": "Técnico", "institution": "Senac"}])
+    assert '<span class="course-detail">' not in generate.build_html(plain, "classic")
+
+
 def test_compose_cv_empty_scope_equals_master():
     import generate
     assert generate.compose_cv(MASTER, {}) == MASTER

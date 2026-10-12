@@ -161,8 +161,10 @@ def education_item(e):
     </article>"""
 
 def course_item(c):
+    detail = f'<br><span class="course-detail">{esc(c["detail"])}</span>' \
+        if c.get("detail") else ""
     return f"""
-    <p class="course-item">{esc(c["title"])} | {esc(c["institution"])}</p>"""
+    <p class="course-item">{esc(c["title"])} | {esc(c["institution"])}{detail}</p>"""
 
 def skill_group(s):
     tags = ", ".join(esc(t) for t in s["tags"])
@@ -260,6 +262,8 @@ body {{
 .dot-empty  {{ background: #e4e4e4; }}
 
 .course-item {{ font-family: var(--font-body); font-size: 15px; line-height: 18px; padding: 6px 12px; break-inside: avoid; }}
+
+.course-detail {{ display: block; font-size: 12px; color: var(--color-muted); padding-left: 12px; }}
 
 @media print {{
   body  {{ background: none; }}
