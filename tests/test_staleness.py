@@ -81,6 +81,21 @@ def test_changed_cv_data_is_stale(tmp_path):
     assert found and found[0].reason == "CV data changed"
 
 
+def test_a_master_change_marks_its_projections_stale(tmp_path):
+    """A company CV is composed from the master, so editing the master must
+    report every projection, not only the master itself."""
+    master = tmp_path / "cv.json"
+    master.write_text(json.dumps({"personal": {"name": "Ada"}}))
+    make_pdf(tmp_path, staleness.stem_of(master), "en")
+    staleness.write_stamp(tmp_path, master, "en")
+    build(tmp_path)  # companies/acme/cv-en.json, stamped against the master
+    assert staleness.find_stale(tmp_path) == []
+
+    master.write_text(json.dumps({"personal": {"name": "Ada"}, "summary": "new"}))
+    labels = {s.label for s in staleness.find_stale(tmp_path)}
+    assert "acme" in labels, "the projection must be reported, not only the master"
+
+
 def test_a_changed_renderer_is_stale(tmp_path):
     build(tmp_path)
     (tmp_path / "generate.py").write_text("# renderer changed")

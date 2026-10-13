@@ -54,9 +54,29 @@ def _digest(names, root: Path) -> str:
     return h.hexdigest()[:16]
 
 
+def _master_for(root: Path, cv_path: Path) -> Optional[Path]:
+    """The master a company CV is composed from, or None for the master itself.
+
+    A company CV is a projection of the master profile, so a master edit makes
+    every projection out of date even though the company's own file is
+    untouched. The master is therefore part of the data a build is stamped
+    against.
+    """
+    lang = "pt" if cv_path.stem.endswith("-pt") else "en"
+    master = root / ("cv.json" if lang == "en" else f"cv-{lang}.json")
+    if master.is_file() and master != cv_path:
+        return master
+    return None
+
+
 def fingerprint(root: Path, cv_path: Path) -> dict:
+    h = hashlib.sha256()
+    h.update(cv_path.read_bytes())
+    master = _master_for(root, cv_path)
+    if master is not None:
+        h.update(master.read_bytes())
     return {
-        "data": hashlib.sha256(cv_path.read_bytes()).hexdigest()[:16],
+        "data": h.hexdigest()[:16],
         "render": _digest(RENDER_FILES, root),
         "rules": _digest(RULE_FILES, root),
     }
