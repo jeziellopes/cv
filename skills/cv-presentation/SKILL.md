@@ -56,6 +56,10 @@ worse than no letter.
    and answer the ones the CV proves best.
 8. **No em-dash, and no record citations.** The letter is prose a stranger
    reads; the same bans that govern a skill's prose govern it.
+9. **The letter ships with a PDF beside it.** A posting that accepts an upload
+   wants a file, not a markdown. Export the letter to
+   `companies/<slug>/<CandidateName>-<lang>-cover-letter.pdf`, named like the
+   CV's PDF, so the two travel together.
 
 ## Method
 
@@ -70,8 +74,14 @@ worse than no letter.
 4. **Write the letter.** Opening that names the role and the honest fit; a
    mapped body that answers the JD's asks; a close with the operator's links.
    Keep it to a screen and a half. Concrete, first person, no filler.
-5. **Place it and stop.** Write `companies/<slug>/presentation.md`. The letter
-   is the output; the CV, the master and the ledger are untouched.
+5. **Place it.** Write `companies/<slug>/presentation.md`. The letter is the
+   output; the CV, the master and the ledger are untouched.
+6. **Export the PDF and stop.** Run
+   `cv presentation --company <slug> --lang <lang>`. It renders the letter
+   through the same theme and the same Playwright engine as the CV, and writes
+   `companies/<slug>/<CandidateName>-<lang>-cover-letter.pdf`, named like the
+   CV's PDF. One exporter for every PDF, so the two travel together and look
+   alike.
 
 ## The gate
 
@@ -82,6 +92,7 @@ Pass 1, the letter is complete:
 [ ] every ask in the JD's list is answered or named as a gap
 [ ] the links and contact facts match the master's personal block
 [ ] it is saved at companies/<slug>/presentation.md
+[ ] a cover-letter PDF exists beside it, named like the CV
 ```
 Pass 2, the claims hold:
 ```
@@ -115,8 +126,8 @@ proves it. At most five items; group the rest rather than listing them all.>
 
 ## Handoff
 
-Say the file path, the posting's language and level, and which asks were
-answered versus left as gaps. The letter is complete when the operator can send
-it without checking a claim; that is the stop. Editing the CV or the master
-because a letter wanted a stronger sentence is a separate, later change, and
-this skill does not perform it.
+Say the file paths (the markdown and its PDF), the posting's language and
+level, and which asks were answered versus left as gaps. The letter is complete
+when the operator can send it without checking a claim; that is the stop.
+Editing the CV or the master because a letter wanted a stronger sentence is a
+separate, later change, and this skill does not perform it.
