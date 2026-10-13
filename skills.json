@@ -214,7 +214,23 @@
     "Event-Driven Architecture",
     "Message Queuing",
     "durable execution",
-    "MCP"
+    "MCP",
+    "OAuth 2.0",
+    "SSO",
+    "credential management",
+    "Helm",
+    "PgBouncer",
+    "EXPLAIN ANALYZE",
+    "table partitioning",
+    "zero-downtime migrations",
+    "concurrent rendering",
+    "micro-frontends",
+    "Web Vitals",
+    "RAG",
+    "vector database",
+    "LLM evaluation",
+    "multi-region IaC",
+    "disaster recovery"
   ],
   "probes": {
     "react": [
