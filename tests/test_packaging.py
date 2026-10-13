@@ -216,6 +216,8 @@ def test_letter_html_carries_the_cv_theme():
     html = generate.build_letter_html("# T\n\nbody", "orange", "T")
     assert 'class="resume letter"' in html
     assert "--font-heading" in html, "the letter must use the CV's theme css"
+    assert "border-bottom: 1px solid var(--color-border)" in html, \
+        "the brand line under the headings must match the CV"
 
 
 def test_presentation_command_writes_html_without_pdf(tmp_path, monkeypatch):

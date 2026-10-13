@@ -518,8 +518,10 @@ def _md_to_html(md_text: str) -> str:
 
 
 _LETTER_CSS = """
-.letter h1 { font-family: var(--font-heading); font-size: 22px; margin: 0 0 12px; }
-.letter h2 { font-family: var(--font-heading); font-size: 16px; margin: 16px 0 6px; }
+.letter h1 { font-family: var(--font-heading); font-size: 22px; margin: 0 0 12px;
+             padding-bottom: 6px; border-bottom: 1px solid var(--color-border); }
+.letter h2 { font-family: var(--font-heading); font-size: 16px; margin: 16px 0 6px;
+             padding-bottom: 4px; border-bottom: 1px solid var(--color-border); }
 .letter h3 { font-family: var(--font-heading); font-size: 14px; margin: 12px 0 4px; }
 .letter p  { font-family: var(--font-body); font-size: 13px; line-height: 19px; margin: 0 0 10px; }
 .letter ul { margin: 0 0 10px; padding-left: 18px; }
