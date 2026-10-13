@@ -204,11 +204,12 @@ def test_new_and_translate_are_removed_from_the_cli(tmp_path, monkeypatch):
 def test_letter_markdown_renders_headings_links_and_lists():
     import generate
     body = generate._md_to_html(
-        "# Title\n\nHello **world** and [site](https://x.dev).\n\n- one\n- two\n")
+        "# Title\n\nHello **world** and [site](https://x.dev).\n\n- one\n- two\n\n---\n")
     assert "<h1>Title</h1>" in body
     assert "<strong>world</strong>" in body
     assert '<a href="https://x.dev">site</a>' in body
     assert "<ul>" in body and "<li>one</li>" in body
+    assert '<hr class="letter-rule" />' in body
 
 
 def test_letter_html_carries_the_cv_theme():

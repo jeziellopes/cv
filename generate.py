@@ -506,6 +506,9 @@ def _md_to_html(md_text: str) -> str:
             in_list = False
         if not line:
             continue
+        if line.strip() in ("---", "***", "___"):
+            out.append('<hr class="letter-rule" />')
+            continue
         for marker, tag in (("### ", "h3"), ("## ", "h2"), ("# ", "h1")):
             if line.startswith(marker):
                 out.append(f"<{tag}>{_md_inline(line[len(marker):])}</{tag}>")
@@ -527,6 +530,7 @@ _LETTER_CSS = """
 .letter ul { margin: 0 0 10px; padding-left: 18px; }
 .letter li { font-family: var(--font-body); font-size: 13px; line-height: 19px; }
 .letter a  { color: inherit; }
+.letter hr { border: none; border-top: 1px solid var(--color-border); margin: 12px 0; }
 """
 
 
