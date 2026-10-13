@@ -285,6 +285,14 @@ def test_a_broken_alternative_run_stays_separate_demands():
         assert [d[0] for d in ats.jd_demands(jd)] == expected
 
 
+def test_completeness_rejoins_a_tag_broken_by_a_line():
+    """A hyphenated tag wrapped across a PDF line is still present."""
+    cv = {"skills": [{"group": "g", "tags": ["end-to-end testing"]}],
+          "experience": [], "education": [], "courses": [], "languages": []}
+    text = "Testing and Quality: end-to-\nend testing, code review"
+    assert ats.gate_completeness(text, cv).passed
+
+
 def test_scorecard_is_deterministic_and_json_stable(good_pdf, mock_extraction):
     report_one = ats.run_checks(good_pdf, cv=GOOD_CV)
     report_two = ats.run_checks(good_pdf, cv=GOOD_CV)

@@ -111,6 +111,10 @@ JD_STOPWORDS = STOPWORDS | set(
     forrester fwas gartner global google group human-machine intelligence
     interaction lions magic manager marketing microsoft monks pioneer players
     power programmatic quadranttm solution top linkedin
+    advanced architect mentor quickly model responsibilities qualifications
+    partner partners marketplace validated comparable similar full-time
+    description aimon bessemer labs venture
+    qualificationssoftware protocol services amazon apache sdk
     """.split()
 ) | set(
     """
@@ -487,10 +491,23 @@ def _cv_values(cv: dict) -> list[tuple[str, str]]:
     return out
 
 
+def _unfold(text: str) -> str:
+    """Rejoin words the PDF broke across a line.
+
+    A tag like "end-to-end testing" can wrap as "end-to-\\nend testing", so a
+    substring check against the extracted text misses a value the document
+    actually carries. The hyphen that ends the line belongs to the word, so it
+    stays and only the break is dropped; any other whitespace collapses to one
+    space so a wrap at a space reads the same as the unwrapped tag.
+    """
+    text = re.sub(r"-\s*\n\s*", "-", text)
+    return re.sub(r"\s+", " ", text)
+
+
 def gate_completeness(text: str, cv: Optional[dict]) -> Check:
     if not cv:
         return Check("G8", "Sections", "Content completeness", 100, "no cv.json supplied", gate=True)
-    full = norm(text).lower()
+    full = norm(_unfold(text)).lower()
     missing = [f"{key}:{value}" for key, value in _cv_values(cv) if value and norm(value).lower() not in full]
     ok = not missing
     return Check(
