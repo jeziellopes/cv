@@ -199,3 +199,32 @@ def test_new_and_translate_are_removed_from_the_cli(tmp_path, monkeypatch):
         result = CliRunner().invoke(g.app, [command])
         assert result.exit_code != 0, command
         assert "No such command" in result.output, command
+
+
+def test_letter_markdown_renders_headings_links_and_lists():
+    import generate
+    body = generate._md_to_html(
+        "# Title\n\nHello **world** and [site](https://x.dev).\n\n- one\n- two\n")
+    assert "<h1>Title</h1>" in body
+    assert "<strong>world</strong>" in body
+    assert '<a href="https://x.dev">site</a>' in body
+    assert "<ul>" in body and "<li>one</li>" in body
+
+
+def test_letter_html_carries_the_cv_theme():
+    import generate
+    html = generate.build_letter_html("# T\n\nbody", "orange", "T")
+    assert 'class="resume letter"' in html
+    assert "--font-heading" in html, "the letter must use the CV's theme css"
+
+
+def test_presentation_command_writes_html_without_pdf(tmp_path, monkeypatch):
+    import generate as g
+    monkeypatch.setattr(g, "BASE_DIR", tmp_path)
+    folder = tmp_path / "companies" / "acme"
+    folder.mkdir(parents=True)
+    (folder / "presentation.md").write_text("# Cover letter: Acme\n\nHello.\n")
+    result = CliRunner().invoke(
+        g.app, ["presentation", "--company", "acme", "--lang", "en", "--no-pdf"])
+    assert result.exit_code == 0, result.output
+    assert (folder / "presentation.html").is_file()

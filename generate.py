@@ -477,6 +477,77 @@ def build_html(cv: dict, theme_name: str) -> str:
 </body>
 </html>"""
 
+# ---- cover letter -------------------------------------------
+
+_MD_BOLD = re.compile(r"\*\*([^*]+)\*\*")
+_MD_LINK = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+
+
+def _md_inline(text: str) -> str:
+    text = esc(text)
+    text = _MD_BOLD.sub(r"<strong>\1</strong>", text)
+    return _MD_LINK.sub(r'<a href="\2">\1</a>', text)
+
+
+def _md_to_html(md_text: str) -> str:
+    """A small markdown subset for the letters: headings, lists, bold, links."""
+    out: list[str] = []
+    in_list = False
+    for raw in md_text.splitlines():
+        line = raw.rstrip()
+        if line.startswith("- "):
+            if not in_list:
+                out.append("<ul>")
+                in_list = True
+            out.append(f"<li>{_md_inline(line[2:])}</li>")
+            continue
+        if in_list:
+            out.append("</ul>")
+            in_list = False
+        if not line:
+            continue
+        for marker, tag in (("### ", "h3"), ("## ", "h2"), ("# ", "h1")):
+            if line.startswith(marker):
+                out.append(f"<{tag}>{_md_inline(line[len(marker):])}</{tag}>")
+                break
+        else:
+            out.append(f"<p>{_md_inline(line)}</p>")
+    if in_list:
+        out.append("</ul>")
+    return "\n".join(out)
+
+
+_LETTER_CSS = """
+.letter h1 { font-family: var(--font-heading); font-size: 22px; margin: 0 0 12px; }
+.letter h2 { font-family: var(--font-heading); font-size: 16px; margin: 16px 0 6px; }
+.letter h3 { font-family: var(--font-heading); font-size: 14px; margin: 12px 0 4px; }
+.letter p  { font-family: var(--font-body); font-size: 13px; line-height: 19px; margin: 0 0 10px; }
+.letter ul { margin: 0 0 10px; padding-left: 18px; }
+.letter li { font-family: var(--font-body); font-size: 13px; line-height: 19px; }
+.letter a  { color: inherit; }
+"""
+
+
+def build_letter_html(md_text: str, theme_name: str, title: str) -> str:
+    """Wrap a cover letter in the same theme shell the CV uses."""
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{esc(title)}</title>
+  {build_fonts_link(theme_name)}
+  <style>{build_css(theme_name)}
+{_LETTER_CSS}</style>
+</head>
+<body>
+<div class="resume letter">
+{_md_to_html(md_text)}
+</div>
+</body>
+</html>"""
+
+
 # ---- CLI commands -------------------------------------------
 
 def candidate_filename_stem(cv_path: Path) -> str:
@@ -505,6 +576,46 @@ def resolve_paths(company, lang):
         cv_path = BASE_DIR / cv_filename
         pdf_out = BASE_DIR / f"{candidate_filename_stem(cv_path)}-{lang}.pdf"
     return cv_path, pdf_out, BASE_DIR / "index.html"
+
+
+def export_pdf(html_path: Path, pdf_out: Path) -> None:
+    """Render a local HTML file to PDF with the same engine the CV uses.
+
+    One exporter for every PDF this pipeline makes, so a CV and a cover letter
+    share the theme, the fonts and the page margins rather than each inventing
+    its own.
+    """
+    browsers = resolve_browsers_path()
+    if browsers:
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browsers
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        typer.echo(
+            "✖ Playwright is not installed.\n"
+            "  Run: pip install playwright && playwright install chromium",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    pdf_out.parent.mkdir(parents=True, exist_ok=True)
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(args=["--no-sandbox"])
+        page = browser.new_page()
+        page.goto(f"file://{html_path}", wait_until="networkidle")
+        page.wait_for_timeout(800)   # let Google Fonts render
+        page.pdf(
+            path=str(pdf_out),
+            format="A4",
+            print_background=True,
+            margin={
+                "top":    f"{PAGE_MARGIN}px",
+                "right":  f"{PAGE_MARGIN}px",
+                "bottom": f"{PAGE_MARGIN}px",
+                "left":   f"{PAGE_MARGIN}px",
+            },
+        )
+        browser.close()
 
 
 def resolve_browsers_path():
@@ -660,37 +771,7 @@ def generate(
         typer.echo(f"   step: {step}")
 
     if pdf:
-        browsers = resolve_browsers_path()
-        if browsers:
-            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browsers
-        try:
-            from playwright.sync_api import sync_playwright
-        except ImportError:
-            typer.echo(
-                "✖ Playwright is not installed.\n"
-                "  Run: pip install playwright && playwright install chromium",
-                err=True,
-            )
-            raise typer.Exit(1)
-
-        pdf_out.parent.mkdir(parents=True, exist_ok=True)
-        with sync_playwright() as pw:
-            browser = pw.chromium.launch(args=["--no-sandbox"])
-            page = browser.new_page()
-            page.goto(f"file://{html_out}", wait_until="networkidle")
-            page.wait_for_timeout(800)   # let Google Fonts render
-            page.pdf(
-                path=str(pdf_out),
-                format="A4",
-                print_background=True,
-                margin={
-                    "top":    f"{PAGE_MARGIN}px",
-                    "right":  f"{PAGE_MARGIN}px",
-                    "bottom": f"{PAGE_MARGIN}px",
-                    "left":   f"{PAGE_MARGIN}px",
-                },
-            )
-            browser.close()
+        export_pdf(html_out, pdf_out)
 
         # Record what this PDF was built from, so a later change to the checks
         # themselves can mark it stale. Timestamps cannot see a rule that did
@@ -859,6 +940,38 @@ def status() -> None:
         typer.echo(f"  cv tailor {pending[0].get('slug')}")
     else:
         typer.echo("  nothing queued; capture a job from the extension")
+
+
+@app.command()
+def presentation(
+    company: Annotated[str, typer.Option("--company", "-c",
+                                         help="Company ID (reads companies/{id}/presentation.md)")],
+    lang: Annotated[str, typer.Option("--lang", "-l",
+                                      help="Language code (en, pt)")] = "en",
+    theme: Annotated[str, typer.Option("--theme", "-t",
+                                       help="Theme: classic, modern, minimal, orange")] = DEFAULT_THEME,
+    pdf: Annotated[bool, typer.Option("--pdf/--no-pdf", help="Export PDF")] = True,
+) -> None:
+    """Render a cover letter with the CV's theme, and export its PDF."""
+    company_dir = BASE_DIR / "companies" / company
+    md_path = company_dir / "presentation.md"
+    if not md_path.is_file():
+        typer.echo(f"No cover letter at companies/{company}/presentation.md", err=True)
+        raise typer.Exit(1)
+
+    md_text = md_path.read_text(encoding="utf-8")
+    title = next((line[2:].strip() for line in md_text.splitlines()
+                  if line.startswith("# ")), f"{company} cover letter")
+    html_out = company_dir / "presentation.html"
+    html_out.write_text(build_letter_html(md_text, theme, title), encoding="utf-8")
+    typer.echo(f"✔ {html_out.relative_to(BASE_DIR)} written  (theme: {theme})")
+
+    if pdf:
+        cv_path = company_dir / f"cv-{lang}.json"
+        stem = candidate_filename_stem(cv_path) if cv_path.is_file() else "cv"
+        pdf_out = company_dir / f"{stem}-{lang}-cover-letter.pdf"
+        export_pdf(html_out, pdf_out)
+        typer.echo(f"✔ {pdf_out.relative_to(BASE_DIR)} written")
 
 
 @app.command()
