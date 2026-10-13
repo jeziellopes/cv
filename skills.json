@@ -230,7 +230,21 @@
     "vector database",
     "LLM evaluation",
     "multi-region IaC",
-    "disaster recovery"
+    "disaster recovery",
+    "Databricks",
+    "Snowflake",
+    "BigQuery",
+    "Redshift",
+    "Apache Spark",
+    "PySpark",
+    "Delta Lake",
+    "lakehouse",
+    "Airflow",
+    "dbt",
+    "Dagster",
+    "Kinesis",
+    "CrewAI",
+    "LangGraph"
   ],
   "probes": {
     "react": [
