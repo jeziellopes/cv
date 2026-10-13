@@ -343,6 +343,30 @@ def test_prose_manifests_and_locks_cannot(rel):
     assert not skills._is_usage_file(rel)
 
 
+def test_the_pipelines_own_repos_are_not_evidence(tmp_path, monkeypatch):
+    """The cv repo and its nested companies repo must not attest a skill from
+    the CVs they hold; reading them would be circular."""
+    import subprocess
+
+    root = tmp_path / "cv"
+    nested = root / "companies"
+    other = tmp_path / "work" / "proj"
+    for repo in (nested, other):
+        repo.mkdir(parents=True)
+        subprocess.run(["git", "-C", str(repo), "init", "-q"])
+        subprocess.run(["git", "-C", str(repo), "config", "user.email", "a@x"])
+        subprocess.run(["git", "-C", str(repo), "config", "user.name", "A"])
+        (repo / "app.ts").write_text("import turbo\n")
+        subprocess.run(["git", "-C", str(repo), "add", "-A"])
+        subprocess.run(["git", "-C", str(repo), "commit", "-q", "-m", "a"])
+
+    monkeypatch.setattr(skills, "ROOT", root)
+    labels = set(skills._collect_additions(roots=[tmp_path], author="a@x"))
+    assert "work/proj" in labels, "an ordinary repo still evidences"
+    assert not any(label.endswith("companies") for label in labels), \
+        "the pipeline's own companies repo must not be read as evidence"
+
+
 def test_cv_gaps_reports_a_capture_whose_cv_claims_an_unproven_skill(
         tmp_path, monkeypatch):
     import inbox

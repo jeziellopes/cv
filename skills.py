@@ -374,7 +374,10 @@ def _collect_additions(roots=None, author: Optional[str] = None
     out: dict[str, str] = {}
     usage_globs = tuple(f"*{ext}" for ext in USAGE_EXTS)
     for repo in evidence.find_repos(roots):
-        if repo.name in SELF_REPOS:
+        # Skip this pipeline's own repositories: the cv repo, and the nested
+        # `companies` repo that holds its generated CVs. Reading those would
+        # attest a skill from the CV that claims it, which is circular.
+        if repo.name in SELF_REPOS or ROOT == repo or ROOT in repo.parents:
             continue
         corpus = evidence.authored_additions(repo, author, usage_globs)
         if corpus:
