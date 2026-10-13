@@ -315,6 +315,16 @@ def test_a_known_gap_is_recognised_as_unproven(tag):
     assert skills.unproven_in(_cv(tag), {"evidence": {}}) == [tag]
 
 
+def test_gaps_render_surfaces_the_learning_watch_list(capsys):
+    """A watch-list skill nothing asks and nothing proves is a learning item."""
+    ledger = {"skills": ["Databricks"], "evidence": {}, "demand": {}}
+    config = {"extra": ["Databricks"], "soft": [], "allowed": {}}
+    skills._render(ledger, config, show_soft=False)
+    out = capsys.readouterr().out
+    assert "watch-list, to learn" in out
+    assert "Databricks" in out
+
+
 def test_short_needles_are_word_bounded():
     # "ecs" inside "specs" and "aws" inside "laws" cost the first ledger
     # hundreds of phantom repos, including 66 for ECS alone.

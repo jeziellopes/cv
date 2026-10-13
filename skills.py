@@ -633,6 +633,18 @@ def _render(ledger: dict, config: dict, show_soft: bool) -> None:
     if len(unused) > 20:
         print(f"  ... and {len(unused) - 20} more")
 
+    # The watch-list: skills to learn, tracked before any CV claims them.
+    watch = sorted(
+        s for s in config.get("extra", [])
+        if normalize(s) not in evidenced
+        and normalize(s) not in wanted_keys
+        and normalize(s) not in soft_keys
+        and normalize(s) not in allowed_keys
+    )
+    print(f"\nwatch-list, to learn (nothing asks, nothing proves) ({len(watch)})")
+    for name in watch:
+        print(f"  {name}")
+
     if show_soft:
         print(f"\nsoft, never evidenced by design ({len(parts['soft'])})")
         for name in sorted(parts["soft"]):
