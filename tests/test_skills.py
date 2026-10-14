@@ -71,7 +71,7 @@ def test_match_key_keeps_other_skill_names_distinct():
 
 
 def test_unproven_in_flags_an_unevidenced_tag():
-    ledger = {"evidence": {"React": ["orange/protos"]}}
+    ledger = {"evidence": {"React": ["acme/protos"]}}
     assert skills.unproven_in(_cv("React", "DynamoDB"), ledger) == ["DynamoDB"]
 
 

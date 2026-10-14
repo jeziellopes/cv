@@ -75,7 +75,7 @@ def test_orange_theme_is_the_default_generate():
     assert "orange" in generate.THEMES
 
 
-def test_orange_theme_is_classic_with_an_orange_line():
+def test_orange_theme_is_classic_with_an_orange_rule():
     import generate
     classic = generate.THEMES["classic"]
     orange = generate.THEMES["orange"]
@@ -94,7 +94,7 @@ def test_orange_theme_builds_css():
 
 MASTER = {
     "experience": [
-        {"org": "Orange", "role": "Founder & Principal Full Stack Engineer",
+        {"org": "Acme", "role": "Founder & Principal Full Stack Engineer",
          "bullets": ["a1", "a2"]},
         {"org": "Other", "role": "Dev", "bullets": ["c1"]},
     ]
@@ -124,7 +124,7 @@ def test_compose_cv_empty_scope_equals_master():
 def test_compose_cv_applies_the_frame_and_narrows():
     import generate
     out = generate.compose_cv(
-        MASTER, {"frame": {"Orange": {"role": "Principal Full Stack Engineer"}}})
+        MASTER, {"frame": {"Acme": {"role": "Principal Full Stack Engineer"}}})
     assert out["experience"][0]["role"] == "Principal Full Stack Engineer"
     narrowed = generate.compose_cv(
         MASTER, {"experiences": [{"org": "Other", "bullets": [0]}]})
@@ -174,7 +174,7 @@ def test_generate_company_projects_the_master_plus_scope(tmp_path, monkeypatch):
                      "linkedin": "https://linkedin.com/in/jo", "location": "Remote"},
         "summary": "s",
         "experience": [
-            {"org": "Orange", "role": "Founder & Principal Full Stack Engineer",
+            {"org": "Acme", "role": "Founder & Principal Full Stack Engineer",
              "location": "Remote", "start": "01/2025", "end": "Present",
              "bullets": ["a"]}],
         "education": [], "courses": [],
@@ -184,7 +184,7 @@ def test_generate_company_projects_the_master_plus_scope(tmp_path, monkeypatch):
     folder = tmp_path / "companies" / "acme"
     folder.mkdir(parents=True)
     (folder / "scope-en.json").write_text(json.dumps(
-        {"frame": {"Orange": {"role": "Principal Full Stack Engineer"}}}))
+        {"frame": {"Acme": {"role": "Principal Full Stack Engineer"}}}))
     result = CliRunner().invoke(g.app, ["generate", "--company", "acme", "--lang", "en"])
     assert result.exit_code == 0, result.output
     derived = json.loads((folder / "cv-en.json").read_text(encoding="utf-8"))

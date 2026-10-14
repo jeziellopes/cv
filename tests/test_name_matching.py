@@ -7,7 +7,7 @@ Adding "memo" to the deny list flagged every CV containing "memória" or
 from approvals import leaked
 
 CONFIG = {
-    "approved": ["Orange"],
+    "approved": ["Acme"],
     "approved_by_company": {"acme": ["memo"]},
     "internal": ["memo", "XRay", "RespiraPsi"],
 }

@@ -25,8 +25,8 @@ def test_node_modules_is_noise():
 
 def test_repo_label_is_relative_to_its_root(tmp_path):
     root = tmp_path / "lab"
-    repo = root / "orange" / "protos"
-    assert evidence.repo_label(repo, [root]) == "orange/protos"
+    repo = root / "acme" / "protos"
+    assert evidence.repo_label(repo, [root]) == "acme/protos"
 
 
 def test_repo_label_falls_back_to_the_full_path(tmp_path):
@@ -35,7 +35,7 @@ def test_repo_label_falls_back_to_the_full_path(tmp_path):
 
 
 CONFIG = {
-    "approved": ["Orange", "jagents"],
+    "approved": ["Acme", "jagents"],
     "approved_by_company": {"pavago": ["XRay", "Protos"]},
     "internal": ["XRay", "Protos", "SEAH"],
 }

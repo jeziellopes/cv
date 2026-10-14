@@ -350,10 +350,10 @@ THEMES = {
 """,
     },
 
-    # ── Orange ───────────────────────────────────────────────
+    # ── Orange ────────────────────────────────────────────────
     # Classic typography and black text, with the sole difference being the
-    # orange brand line under the section titles. No orange text: the name,
-    # the bullets and the dots stay black, exactly like classic.
+    # orange rule under the section titles. No orange text: the name, the
+    # bullets and the dots stay black, exactly like classic.
     "orange": {
         "fonts_url": (
             "https://fonts.googleapis.com/css2?"
